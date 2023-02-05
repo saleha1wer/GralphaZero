@@ -53,14 +53,13 @@ class ChessDataset(Dataset):
         return self.graphs[idx], torch.tensor(self.values[idx]), torch.tensor(self.policies[idx])
 
 
+
+##### Testing #####
 # temp = ChessDataset(fens=['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],values=[0,0],policies=[[0,0,0],[0,0,0]])
 # temp.process()
-
 # datamodule_config = {
 #     'batch_size': 2,
 #     'num_workers': 0
 # }
-
 # temp_dl = DataLoader(temp, batch_size=datamodule_config['batch_size'], shuffle=True, num_workers=datamodule_config['num_workers'])
-
 # print(next(iter(temp_dl)))

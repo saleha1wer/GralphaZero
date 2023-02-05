@@ -133,12 +133,11 @@ class GNN(pl.LightningModule):
         return self.emb_f
 
 
+
+##### Testing #####
 # config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 2}
-
 # temp = ChessDataset(fens=['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],values=torch.tensor([0,0]).to(torch.float),policies=torch.tensor([np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))]).to(torch.float))
-
 # temp_dl = DataLoader(temp, batch_size=config['batch_size'], shuffle=True, num_workers=0)
-
 # model = GNN(config)
 # trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=10)
 # trainer.fit(model, temp_dl)
