@@ -16,10 +16,12 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 - [x] Network
 - [ ] MCTS 
 - [ ] Training 
+  - [x] buffer
+  - [ ] encode/decode action from/to (8,8,73) matrix
   - [ ] Gather data with self-play (MCTS)
   - [ ] Train network on random batch of data
-  - [ ] Evaluate against previous network (400 games), pick best network
-  - [ ] Calc (and store) Elo of network
+  - [ ] Evaluate against previous network (400 games), pick best network (ran every 1000 training loops)
+  - [ ] Function to calculate (and store) Elo of network (ran every 100 training loops)
 - [ ] Play  
   - [ ] Load policy network
   - [ ] Run 1600 simulations of MCTS and select the child node with highest N value.
