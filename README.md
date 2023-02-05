@@ -12,7 +12,7 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 ## Roadmap
 - [x] Graph representation
   - [x] Chess board --> Graph
-  - [ ] Encode repetition, move count and no progress count 
+  - [ ] Add to rep: 1. side to move, 2. repetition count, 3. move count and 4. no progress count 
 - [x] Network
 - [ ] MCTS 
 - [ ] Training 
