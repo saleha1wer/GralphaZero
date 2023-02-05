@@ -32,14 +32,13 @@ class GNN(pl.LightningModule):
         self.pool = GlobalAttention(gate_nn=torch.nn.Linear(self.hidden_size, 1))
 
         self.fc1 = Linear(dim, dim)
-        self.fc2 = Linear(dim, dim)
+        # self.fc2 = Linear(dim, dim)
 
-        self.fc3 = Linear(dim, dim)
-        self.fc4 = Linear(dim, dim)
+        # self.fc3 = Linear(dim, dim)
+        # self.fc4 = Linear(dim, dim)
 
-        self.fc5 = Linear(dim, dim)
-        self.fc6 = Linear(dim, dim)
-
+        # self.fc5 = Linear(dim, dim)
+        # self.fc6 = Linear(dim, dim)
         self.policy_out = Linear(dim, dim)
         self.fc7 = Linear(dim, int(dim/2))
         self.fc8 = Linear(int(dim/2), int(dim/6))
@@ -58,13 +57,13 @@ class GNN(pl.LightningModule):
         x = F.relu(self.gnn(x, edge_index, edge_attr))
         self.emb_f = self.pool(x, graphs.batch)
         x = F.relu(self.fc1(self.emb_f))
-        x = self.fc2(x)
+        # x = self.fc2(x)
 
-        x = self.fc3(x)
-        x = F.relu(self.fc4(x))
-        x = BatchNorm1d(x.shape[1])(x)
-        x = self.fc5(x)
-        x = F.relu(self.fc6(x))
+        # x = self.fc3(x)
+        # x = F.relu(self.fc4(x))
+        # x = BatchNorm1d(x.shape[1])(x)
+        # x = self.fc5(x)
+        # x = F.relu(self.fc6(x))
         x = BatchNorm1d(x.shape[1])(x)
         policy = torch.reshape(F.softmax(self.policy_out(x)), (self.batch_size,8,8,73))
         x = self.fc7(x)
@@ -131,7 +130,7 @@ class GNN(pl.LightningModule):
 # from torch_geometric.data import Dataset
 # from torch_geometric.loader import DataLoader
 # from datamodule import ChessDataset
-# config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 2}
+# config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 16, 'batch_size': 2}
 # temp = ChessDataset(fens=['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],values=torch.tensor([0,0]).to(torch.float),policies=torch.tensor([np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))]).to(torch.float))
 # temp_dl = DataLoader(temp, batch_size=config['batch_size'], shuffle=True, num_workers=0)
 # model = GNN(config)

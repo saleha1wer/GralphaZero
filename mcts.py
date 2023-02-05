@@ -3,6 +3,7 @@ MCTS self-play implementation
 """
 from network import GNN
 from buffer import Buffer
+
 class Node:
     def __init__(self,board, parent, prior):
         self.board = board
@@ -12,14 +13,24 @@ class Node:
         self.evals = [1]
         self.P = prior
     
+
+def mcts_run(root,net,buffer):
+    pass
+    # initialize game
+    # select node (save UCB distribution aka policy) 
+    # expand node
+    # simulate game (using network)
+    # backpropagate result 
+    # add data to buffer
+    # return root, buffer
+
 def MCTS_selfplay(net,num_eps=100, sims_per_ep=2500):
     for ep in range(num_eps):
-        pass
-        # initialize game
-        # select node (save UCB distribution aka policy) 
-        # expand node
-        # simulate game
-        # backpropagate result 
+        for sim in range(sims_per_ep):
+            root, buffer = mcts_run(root,net,buffer)
+            pass
+        
+        # train network on random batch of past 20*sims_per_ep games
 
 
 
