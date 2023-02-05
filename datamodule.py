@@ -1,14 +1,9 @@
 import pandas as pd
-import os
 import numpy as np
-from tqdm import tqdm
 import torch
 import torch_geometric
 from torch_geometric.data import Dataset
-from torch_geometric.loader import DataLoader
 import chess
-import pytorch_lightning as pl
-from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
 
 from utils.board2graph import board2graph
 

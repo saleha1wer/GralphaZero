@@ -3,12 +3,9 @@ Graph Neural Network for Chess
 Input : Board state
 Output : Value of the board state and probability of each move
 """
-from ast import Raise
 import torch
 import os
-import typing
 import numpy as np
-import time
 import pandas as pd
 import pytorch_lightning as pl
 from matplotlib import pyplot as plt
@@ -17,10 +14,6 @@ from torch.nn import functional as F, Linear, BatchNorm1d, ModuleList, ReLU, Seq
 from torch_geometric.nn.glob import GlobalAttention, global_mean_pool
 from torch_geometric.data import Data
 from utils.GAT import GAT
-from torch_geometric.data import Dataset
-from torch_geometric.loader import DataLoader
-from datamodule import ChessDataset
-
 
 
 class GNN(pl.LightningModule):
@@ -135,6 +128,9 @@ class GNN(pl.LightningModule):
 
 
 ##### Testing #####
+# from torch_geometric.data import Dataset
+# from torch_geometric.loader import DataLoader
+# from datamodule import ChessDataset
 # config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 2}
 # temp = ChessDataset(fens=['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],values=torch.tensor([0,0]).to(torch.float),policies=torch.tensor([np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))]).to(torch.float))
 # temp_dl = DataLoader(temp, batch_size=config['batch_size'], shuffle=True, num_workers=0)
