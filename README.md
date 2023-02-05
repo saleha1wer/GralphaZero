@@ -13,7 +13,7 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 - [x] Graph representation
   - [x] Chess board --> Graph
   - [ ] Encode repetition, move count and no progress count 
-- [ ] Network
+- [x] Network
 - [ ] MCTS 
 - [ ] Training 
   - [ ] Gather data with self-play (MCTS)
