@@ -9,10 +9,12 @@ import pandas as pd
 import typing
 import matplotlib
 import copy
+from torch_geometric.data import Data
+
 
 class Graphs:
     def __init__(self, node_features: torch.Tensor,
-                 edge_list: torch.Tensor, edge_features: torch.Tensor, node_to_graph_id: torch.Tensor):
+                 edge_list: torch.Tensor, edge_features: torch.Tensor):
         """
         A graph datastructure which groups together the series of tensors that represent the
         graph. Note that this datastructure also holds multiple molecule graphs as one large
@@ -47,9 +49,6 @@ class Graphs:
                          [1. 0.],
                          [1. 0.]]
 
-        node_to_graph_id = [0 0 0 0 1 1]
-
-
         More generally we expect the different tensors to have the following datatypes and shapes
         (below N is number of nodes, E number of edges, h_n the feature dimensionality of node
         features and h_e the feature dimensionality of edge features):
@@ -57,16 +56,10 @@ class Graphs:
         :param node_features: Tensor (dtype float32 , shape [N, h_n])
         :param edge_list: Tensor (dtype int64 , shape [E, 2])
         :param edge_features: Tensor (dtype float32 , shape [E, h_e])
-        :param node_to_graph_id: Tensor (dtype int64 , shape [N]) this contains for each node
-           the associated graph it belongs to. So for instance if this Graph datastructure
-           represented only one graph this should be all zeros, however if two then it should be
-           zeros for the nodes corresponding to the first graph and then 1s for the second graph.
-           Graph ids should start at one and consist of consectutive integers.
         """
         self.node_features = node_features
         self.edge_list = edge_list
         self.edge_features = edge_features
-        self.node_to_graph_id = node_to_graph_id
 
     def to(self, *args, **kwargs):
         """
@@ -75,8 +68,7 @@ class Graphs:
         """
         new_graph = type(self)(self.node_features.to(*args, **kwargs),
                                self.edge_list.to(*args, **kwargs),
-                               self.edge_features.to(*args, **kwargs),
-                               self.node_to_graph_id.to(*args, **kwargs)
+                               self.edge_features.to(*args, **kwargs)
                                )
         return new_graph
 
@@ -93,15 +85,9 @@ class Graphs:
         node_features = torch.tensor(node_features, dtype=torch.float32)
         edge_list = torch.tensor(edge_list, dtype=torch.int64)
         edge_features = torch.tensor(edge_features, dtype=torch.float32)
-        node_to_graph_id = torch.zeros(node_features.shape[0], dtype=torch.int64)
-        # ^we only (currently) have one molecule per SMILES so all the nodes can be assigned
-        # the same id
 
-        return cls(node_features, edge_list, edge_features, node_to_graph_id)
+        return cls(node_features, edge_list, edge_features)
 
-    @property
-    def num_graphs(self):
-        return torch.unique(self.node_to_graph_id).shape[0]
 
 def encode_piece_node(piece): 
     """ 
@@ -111,10 +97,9 @@ def encode_piece_node(piece):
     space = np.zeros(13)
     if piece == None:
         space[0] = 1
-        return space
+        return torch.tensor(space,dtype=torch.float).view(-1, 13)
     if piece.color != chess.WHITE:
         color = 6
-
     if piece.piece_type == chess.PAWN:
         idx = 1
     elif piece.piece_type == chess.BISHOP:
@@ -128,7 +113,7 @@ def encode_piece_node(piece):
     elif piece.piece_type == chess.KING:
         idx = 6
     space[idx+color] = 1
-    return space
+    return torch.tensor(space,dtype=torch.long).view(-1, 13)
 
 
 def encode_move_edge(move): 
@@ -160,7 +145,8 @@ def board2graph(board: chess.Board):
     edge_features = [[0] for i in range(len(edge_list))]
     for move in moves_list:
         edge_features[edge_list.index(move)] = [1]
-    return node_features, edge_list,edge_features
+    return Data(x=torch.stack(node_features,dim=0).reshape(64, 13), edge_index=torch.tensor(edge_list, dtype=torch.int64).t().view(2, -1), edge_attr=torch.tensor(edge_features, dtype=torch.float))
+    # return node_features, edge_list,edge_features
 
 
 
