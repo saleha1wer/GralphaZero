@@ -64,14 +64,13 @@ class GNN(pl.LightningModule):
         # x = self.fc5(x)
         # x = F.relu(self.fc6(x))
         # x = BatchNorm1d(x.shape[1])(x)
-        x = F.softmax(self.policy_out(x))
+        x = F.softmax(self.policy_out(x),dim=1)
         policy = torch.reshape(x,(x.shape[0],8,8,73))
         x = self.fc7(x)
         # x = BatchNorm1d(x.shape[1])(x)
         x = F.relu(self.fc8(x))
-
-        value = F.tanh(self.value_out(x))
-
+        
+        value = torch.tanh(self.value_out(x))
         return value, policy
 
     def mse_loss(self, prediction, target):

@@ -23,4 +23,5 @@ def decode_action(board, encoded_action):
     encoded_action: np.array of size 8x8x73
     https://github.com/geochri/AlphaZero_Chess/blob/master/src/encoder_decoder.py
     """
-    return chess.Move(chess.E2,chess.E4) 
+
+    return np.random.choice(list(board.legal_moves))
