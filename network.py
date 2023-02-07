@@ -43,7 +43,6 @@ class GNN(pl.LightningModule):
         self.fc7 = Linear(dim, int(dim/2))
         self.fc8 = Linear(int(dim/2), int(dim/6))
         self.value_out = Linear(int(dim/6), 1)
-
         self.emb_f = None
         self.save_hyperparameters()
 
@@ -64,10 +63,11 @@ class GNN(pl.LightningModule):
         # x = BatchNorm1d(x.shape[1])(x)
         # x = self.fc5(x)
         # x = F.relu(self.fc6(x))
-        x = BatchNorm1d(x.shape[1])(x)
-        policy = torch.reshape(F.softmax(self.policy_out(x)), (self.batch_size,8,8,73))
+        # x = BatchNorm1d(x.shape[1])(x)
+        x = F.softmax(self.policy_out(x))
+        policy = torch.reshape(x,(x.shape[0],8,8,73))
         x = self.fc7(x)
-        x = BatchNorm1d(x.shape[1])(x)
+        # x = BatchNorm1d(x.shape[1])(x)
         x = F.relu(self.fc8(x))
 
         value = F.tanh(self.value_out(x))
