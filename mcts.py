@@ -15,6 +15,8 @@ from tqdm import tqdm
 import pandas as pd
 import pytorch_lightning as pl
 import time
+import math
+
 class Node:
     def __init__(self,board, parent, prior):
         self.board = board
@@ -23,7 +25,7 @@ class Node:
         self.parent = parent
         self.children = []
         self.n_visits = 1
-        self.evals = [0]
+        self.evals = []
         self.P = prior
         self.idx = None
         self.is_expanded = False
@@ -33,8 +35,8 @@ class Node:
             return 0
         return np.mean(self.evals)
     def ucb(self, c):
-        p = self.P * np.sqrt((np.log(self.parent.n_visits))/ (np.log(1 + self.n_visits))) 
-        return self.ave_eval() + p*c
+        p =  np.sqrt(self.parent.n_visits) / (self.n_visits + 1)
+        return -1*(self.ave_eval()) + self.P + p*c
 
     def expand(self,net):
         # get policy and value from network
@@ -95,7 +97,7 @@ def add_noise(policy):
     noise = np.random.dirichlet(np.zeros([4672], dtype=np.float32)+0.3)
     noise = noise.reshape((8,8,73))
     res = 0.75*policy + 0.25*noise
-    return 0.75*policy + 0.25*noise
+    return res
 
 def simulate(node,net):
     # simulate game using network
@@ -104,7 +106,6 @@ def simulate(node,net):
         _, policy = net([board2graph(game)])
         policy = policy[0].detach().numpy()
         policy = add_noise(policy)
-        # todo: mask illegal moves from policy
         move = decode_action(game,policy)
         game.push(move)
     result = game.outcome()
@@ -130,7 +131,7 @@ def mcts_run(root,net,buffer,c):
     buffer.push(fens, list(np.array(turns)*result), policies)
     return root,buffer
 
-def MCTS_selfplay(net,num_eps=5000, sims_per_ep=50, save_freq=500, eval_freq=200, calc_elo_freq=100):
+def MCTS_selfplay(net,num_eps=5000, sims_per_ep=500, save_freq=500, eval_freq=200, calc_elo_freq=100):
     # initialize root node
     board = chess.Board()
     root = Node(board,parent=None,prior=1)
@@ -140,18 +141,18 @@ def MCTS_selfplay(net,num_eps=5000, sims_per_ep=50, save_freq=500, eval_freq=200
         c = 2 if ep < 100 else 0.7 # start with high exploration
         for sim in tqdm(range(sims_per_ep)):
             root, buffer = mcts_run(root,net,buffer,c) 
-        # train network on random batch of past 20*sims_per_ep games
+        # train network on random batch 
+        print('Buffer size: ',len(buffer.buffer))
+        # with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):  # more options can be specified also
+        #     for index, row in buffer.buffer.iterrows():
+        #         print(row['fen'])
+        #         print(row['value'])
+        #         print(decode_action(chess.Board(row['fen']), row['policy']))
         data = buffer.sample(2000)
         dataloader = DataLoader(data, batch_size=32, shuffle=True)
         trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=3)
         trainer.fit(net, dataloader)
-        raise
-        # print('Buffer size: ',len(buffer.buffer))
-        # with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):  # more options can be specified also
-        #     print(buffer.buffer['fen'])
-        #     print(buffer.buffer['value'])
-        # raise
-
+    #return net and root
 
 net = GNN({'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 32})
 MCTS_selfplay(net)

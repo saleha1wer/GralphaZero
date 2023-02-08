@@ -17,7 +17,7 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 - [x] MCTS 
 - [x] Training 
   - [x] Buffer
-  - [ ] Encode/decode action to/from (8,8,73) matrix
+  - [x] Encode/decode action to/from (8,8,73) matrix
   - [x] Gather data with self-play (MCTS)
   - [x] Train network on random batch of data
   - [ ] Evaluate against previous network (400 games), pick best network 
