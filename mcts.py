@@ -135,19 +135,13 @@ def MCTS_selfplay(net,num_eps=5000, sims_per_ep=500, save_freq=500, eval_freq=20
     # initialize root node
     board = chess.Board()
     root = Node(board,parent=None,prior=1)
-    buffer = Buffer(max_size=50*sims_per_ep)
+    buffer = Buffer(max_size=200*sims_per_ep)
     for ep in range(num_eps):
         print('Episode: ',ep)
         c = 2 if ep < 100 else 0.7 # start with high exploration
         for sim in tqdm(range(sims_per_ep)):
             root, buffer = mcts_run(root,net,buffer,c) 
-        # train network on random batch 
-        print('Buffer size: ',len(buffer.buffer))
-        # with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):  # more options can be specified also
-        #     for index, row in buffer.buffer.iterrows():
-        #         print(row['fen'])
-        #         print(row['value'])
-        #         print(decode_action(chess.Board(row['fen']), row['policy']))
+        # train network on random batch of data
         data = buffer.sample(2000)
         dataloader = DataLoader(data, batch_size=32, shuffle=True)
         trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=2)
