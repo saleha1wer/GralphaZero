@@ -25,24 +25,24 @@ class GNN(pl.LightningModule):
         self.hidden_size = config['hidden']
         self.num_layers = config['n_layers']
         self.batch_size = config['batch_size']
-        dim = self.hidden_size
 
-        self.gnn = GAT(13, dim, num_layers=self.num_layers, edge_dim=1,v2=True,heads=8, norm=torch.nn.BatchNorm1d(dim))
+        self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=1,v2=True,heads=8, norm=torch.nn.BatchNorm1d(self.hidden_size),act_first=True)
 
         self.pool = GlobalAttention(gate_nn=torch.nn.Linear(self.hidden_size, 1))
 
-        self.fc1 = Linear(dim, dim)
-        # self.fc2 = Linear(dim, dim)
+        self.fc1 = Linear(self.hidden_size, self.hidden_size)
+        # self.fc2 = Linear(self.hidden_size, self.hidden_size)
 
-        # self.fc3 = Linear(dim, dim)
-        # self.fc4 = Linear(dim, dim)
-
-        # self.fc5 = Linear(dim, dim)
-        # self.fc6 = Linear(dim, dim)
-        self.policy_out = Linear(dim, dim)
-        self.fc7 = Linear(dim, int(dim/2))
-        self.fc8 = Linear(int(dim/2), int(dim/6))
-        self.value_out = Linear(int(dim/6), 1)
+        # self.fc3 = Linear(self.hidden_size, self.hidden_size)
+        # self.fc4 = Linear(self.hidden_size, self.hidden_size)
+        self.bn = nn.BatchNorm1d(self.hidden_size)
+        # self.fc5 = Linear(self.hidden_size, self.hidden_size)
+        # self.fc6 = Linear(self.hidden_size, self.hidden_size)
+        # self.bn1 = nn.BatchNorm1d(self.hidden_size)
+        self.policy_out = Linear(self.hidden_size, self.hidden_size)
+        self.fc7 = Linear(self.hidden_size, int(self.hidden_size/2))
+        self.fc8 = Linear(int(self.hidden_size/2), int(self.hidden_size/6))
+        self.value_out = Linear(int(self.hidden_size/6), 1)
         self.emb_f = None
         self.save_hyperparameters()
 
@@ -57,14 +57,13 @@ class GNN(pl.LightningModule):
         self.emb_f = self.pool(x, graphs.batch)
         x = F.relu(self.fc1(self.emb_f))
         # x = self.fc2(x)
-
         # x = self.fc3(x)
         # x = F.relu(self.fc4(x))
-        # x = BatchNorm1d(x.shape[1])(x)
+        x = self.bn(x)
         # x = self.fc5(x)
         # x = F.relu(self.fc6(x))
-        # x = BatchNorm1d(x.shape[1])(x)
-        x = F.softmax(self.policy_out(x),dim=1)
+        # x = self.bn1(x)
+        x = F.log_softmax(self.policy_out(x),dim=1).exp()
         policy = torch.reshape(x,(x.shape[0],8,8,73))
         x = self.fc7(x)
         # x = BatchNorm1d(x.shape[1])(x)
