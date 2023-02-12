@@ -1,5 +1,6 @@
 import numpy as np 
 import chess
+import warnings
 
 """
 https://stats.stackexchange.com/questions/355994/representation-input-and-output-nodes-in-neural-network-for-textitalphazero
@@ -67,10 +68,12 @@ def decode_action(board, encoded_action):
 
     legal_moves_idx = np.array([np.array(encode_action(board,i)) for i in board.legal_moves])
     new_encoded_action = np.zeros((8,8,73))
-    new_encoded_action.fill(-np.abs(np.min(encoded_action)))
+    new_encoded_action.fill(-np.inf)
     new_encoded_action[legal_moves_idx[:,0],legal_moves_idx[:,1],legal_moves_idx[:,2]] = encoded_action[legal_moves_idx[:,0],legal_moves_idx[:,1],legal_moves_idx[:,2]]
-    new_encoded_action = new_encoded_action + np.abs(np.min(new_encoded_action))
+    # new_encoded_action = new_encoded_action + np.abs(np.min(new_encoded_action))
     best_idx = np.unravel_index(new_encoded_action.argmax(), new_encoded_action.shape)
+    if np.max(new_encoded_action) == 0:
+      warnings.warn("Encoded action is ilegal, returning first legal move.")
     i,j = best_idx[0],best_idx[1]
     initial_pos = (i,j)
     k = best_idx[2]

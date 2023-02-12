@@ -104,6 +104,7 @@ def backpropagate(node,result):
             cur.evals.append(result)
         else:
             cur.evals.append(-1*result)
+        cur = cur.parent
 
 def mcts_run(root_state,net,c,num_runs):
     net.eval()
@@ -125,15 +126,16 @@ def get_policy(node):
     sum_visits = sum([i.n_visits for i in node.children])
     for child in node.children:
         policy[child.idx[0],child.idx[1],child.idx[2]] = child.n_visits/sum_visits
+    print([policy[child.idx[0],child.idx[1],child.idx[2]] for child in node.children])
     return policy
 
 def MCTS_selfplay(net,num_games=5000, num_sims_per_move=1600, train_freq = 100,buffer_size=100000, sample_size=10000,save_freq=500, eval_freq=200, calc_elo_freq=100):
     # initialize root node
     buffer = Buffer(max_size=buffer_size)
-    for game in range(1,num_games):
+    for game in range(1,num_games+1):
         print('Game: ',game)
         polcies = []
-        fens = []
+        boards = []
         turns = []
         c = 2 if game < 100 else 0.7 # start with high exploration
         cur_board = chess.Board()
@@ -144,18 +146,17 @@ def MCTS_selfplay(net,num_games=5000, num_sims_per_move=1600, train_freq = 100,b
             root, best_move_board = mcts_run(root_state=cur_board,net=net,c=c,num_runs=num_sims_per_move)
             turn = 1 if cur_board.turn == chess.WHITE else -1
             turns.append(turn)
-            policy = get_policy(root)
-            polcies.append(policy)
-            fens.append(cur_board.fen())
+            polcies.append(get_policy(root))
+            boards.append(copy.deepcopy(cur_board))
             cur_board = best_move_board
             if cur_board.outcome() is not None:
                 value = decode_outcome(cur_board.outcome())
             count += 1
             pbar.update(1)
-            values = [value*turn for i in turns]
+            values = [value*i for i in turns]
         pbar.close()
-        assert len(fens) == len(polcies) == len(values)
-        buffer.push(fens,values,polcies)
+        assert len(boards) == len(polcies) == len(values)
+        buffer.push(boards,values,polcies)
         if game % train_freq == 0:
             # train network on random batch of data
             data = buffer.sample(sample_size) 
@@ -166,14 +167,15 @@ def MCTS_selfplay(net,num_games=5000, num_sims_per_move=1600, train_freq = 100,b
 
 net = GNN({'lr': 0.1, 'hidden': 4672, 'n_layers': 1, 'batch_size': 32})
 root, net = MCTS_selfplay(net, 
-                        num_games=10,
-                        num_sims_per_move=777, 
-                        train_freq = 5, 
-                        buffer_size = 1000,
-                        sample_size = 350,
+                        num_games=1,
+                        num_sims_per_move=50, 
+                        train_freq = 10, 
+                        buffer_size = 10000,
+                        sample_size = 2500,
                         save_freq=500, 
                         eval_freq=200, 
                         calc_elo_freq=100)
+
 
 with open('root.pkl', 'wb') as outp:
     pickle.dump(root, outp, pickle.HIGHEST_PROTOCOL)

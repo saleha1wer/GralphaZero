@@ -12,7 +12,7 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 ## Roadmap
 - [x] Graph representation
   - [x] Chess board --> Graph
-  - [ ] Add to rep: 1. side to move, 2. repetition count, 3. move count and 4. no progress count 
+  - [x] Add to rep: 1. side to move, 2. repetition count, 3. move count and 4. no progress count 
 - [x] Network
 - [x] MCTS 
 - [x] Training 
@@ -25,6 +25,7 @@ This project aims to train an alphazero-style engine for Chess. The biggest diff
 - [ ] Play  
   - [ ] Load policy network
   - [ ] Run 1600 simulations of MCTS and select the child node with highest N value.
+- [ ] Multiprocessing 
 
 <!-- CONTRIBUTING -->
 ## Contributing

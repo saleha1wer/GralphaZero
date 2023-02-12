@@ -12,17 +12,17 @@ print(f"Cuda available: {torch.cuda.is_available()}")
 print(f"Torch geometric version: {torch_geometric.__version__}")
 
 class ChessDataset(Dataset):
-    def __init__(self,fens,values,policies):
+    def __init__(self,boards,values,policies):
         """
-        fens = List of FEN strings
+        boards = List of chess boards
         values = List of values
         policies = List of policies
         """
-        self.fens = fens
+        self.boards = boards
         self.values = np.array(values)
         self.policies = np.array(policies)
-        self.graphs = [board2graph(chess.Board(i)) for i in fens]
-        self.length = len(self.fens)
+        self.graphs = [board2graph(i) for i in boards]
+        self.length = len(self.boards)
         super().__init__('data', None, None, None)
 
     @property

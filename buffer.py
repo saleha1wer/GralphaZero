@@ -10,25 +10,25 @@ from network import GNN
 class Buffer:
     def __init__(self, max_size):
         self.max_size = max_size
-        self.buffer = pd.DataFrame(columns=['fen','value','policy'])
+        self.buffer = pd.DataFrame(columns=['board','value','policy'])
 
     def __len__(self):
-        return len(self.buffer)
+        return len(self.buffer.index)
 
-    def push(self, fens, values, policies):
-        self.buffer = self.buffer.append(pd.DataFrame({'fen':fens,'value':values,'policy':policies}))
+    def push(self, boards, values, policies):
+        self.buffer = pd.concat([self.buffer,pd.DataFrame({'board':boards,'value':values,'policy':policies})])
         if self.__len__() > self.max_size:
-            diff = len(self.buffer.index) - self.max_size
+            diff = self.__len__() - self.max_size
             self.buffer.drop(index=self.buffer.index[:diff],inplace=True)
 
     def sample(self, batch_size):
         if batch_size > self.__len__():
             batch_size = self.__len__()
         rand_sample = self.buffer.sample(n=batch_size)
-        fens = rand_sample['fen'].tolist()
+        boards = rand_sample['board'].tolist()
         values = rand_sample['value'].tolist()
         policies = rand_sample['policy'].tolist()
-        data = ChessDataset(fens=fens,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
+        data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
         return data
 
 
