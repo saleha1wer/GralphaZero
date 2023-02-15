@@ -66,10 +66,20 @@ def board2graph(board: chess.Board):
     edge_list.extend([encode_move_edge(move) for move in opp_turn.legal_moves])
     
     moves_list = [encode_move_edge(move) for move in board.legal_moves]
-    edge_features = [[0] for i in range(len(edge_list))] 
+    edge_features = [[0,0] for i in range(len(edge_list))] 
     for move in moves_list:
-        edge_features[edge_list.index(move)] = [1]
-    
+        edge_features[edge_list.index(move)] = [1,0]
+
+    prev_moves_board = copy.deepcopy(board)
+    for i in range(1,8):
+      try:
+        last_move = prev_moves_board.pop()
+      except IndexError:
+        break
+      edge_list.append(encode_move_edge(last_move))
+      turn = 1 if prev_moves_board.turn == board.turn else 0
+      edge_features.append([turn,i])
+
     return Data(x=torch.stack(node_features,dim=0).reshape(64, 20), edge_index=torch.tensor(edge_list, dtype=torch.int64).t().view(2, -1), edge_attr=torch.tensor(edge_features, dtype=torch.float))
     # return node_features, edge_list,edge_features
 

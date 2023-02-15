@@ -21,7 +21,7 @@ class GNN(pl.LightningModule):
         self.hidden_size = config['hidden']
         self.num_layers = config['n_layers']
 
-        self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=1,v2=True,heads=8, norm=nn.BatchNorm1d(self.hidden_size),act_first=True)
+        self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=2,v2=True,heads=8, norm=nn.BatchNorm1d(self.hidden_size),act_first=True)
 
         self.pool = GlobalAttention(gate_nn=nn.Linear(self.hidden_size, 1))
 

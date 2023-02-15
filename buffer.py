@@ -49,13 +49,16 @@ def join_buffers(buffers):
 # import pytorch_lightning as pl
 # import chess
 # temp = Buffer(100)
-# temp.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
+# temp_board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+# temp_board.push_uci('e2e4')
+# temp_board.push_uci('e7e5')
+# temp.push([temp_board,temp_board],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
 # config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 2}
 
 # temp2 = Buffer(100)
-# temp2.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
+# temp2.push([temp_board,temp_board],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
 # temp3 = Buffer(100)
-# temp3.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
+# temp3.push([temp_board,temp_board],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
 
 # new_buffer_df = join_buffers([temp,temp2,temp3])
 # new_buffer = Buffer(100)
