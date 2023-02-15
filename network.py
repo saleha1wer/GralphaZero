@@ -3,18 +3,14 @@ Graph Neural Network for Chess
 Input : Board state
 Output : Value of the board state and probability of each move
 """
-import torch
 import os
-import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
-from matplotlib import pyplot as plt
-from torch import nn, tensor,concat
+from torch import nn
 from torch.nn import functional as F, Linear, BatchNorm1d, ModuleList, ReLU, Sequential
-from torch_geometric.nn.glob import GlobalAttention, global_mean_pool
+from torch_geometric.nn.glob import GlobalAttention
 from torch_geometric.data import Data
 from utils.GAT import GAT
-
+import torch
 
 class GNN(pl.LightningModule):
     def __init__(self, config, data_dir=None,name='GNN'):
@@ -24,11 +20,10 @@ class GNN(pl.LightningModule):
         self.learning_rate = config['lr']
         self.hidden_size = config['hidden']
         self.num_layers = config['n_layers']
-        self.batch_size = config['batch_size']
 
-        self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=1,v2=True,heads=8, norm=torch.nn.BatchNorm1d(self.hidden_size),act_first=True)
+        self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=1,v2=True,heads=8, norm=nn.BatchNorm1d(self.hidden_size),act_first=True)
 
-        self.pool = GlobalAttention(gate_nn=torch.nn.Linear(self.hidden_size, 1))
+        self.pool = GlobalAttention(gate_nn=nn.Linear(self.hidden_size, 1))
 
         self.fc1 = Linear(self.hidden_size, self.hidden_size)
         # self.fc2 = Linear(self.hidden_size, self.hidden_size)
@@ -87,33 +82,8 @@ class GNN(pl.LightningModule):
         value_loss = self.mse_loss(value, train_batch[1])
         policy_loss = self.cross_entropy(policy, train_batch[2])
         loss = value_loss + policy_loss
-        self.log('train_loss', loss, batch_size=self.batch_size)
+        self.log('train_loss', loss)
         return loss
-
-    def validation_step(self, val_batch, batch_idx):
-        value,policy = self.forward(val_batch)
-        value_loss = self.mse_loss(value, val_batch[0])
-        policy_loss = self.cross_entropy(policy, val_batch[1])
-        loss = value_loss + policy_loss
-        self.log('val_loss', loss, batch_size=self.batch_size)
-        return {'val_loss': loss}
-
-    def test_step(self, test_batch, batch_idx):
-        value,policy = self.forward(test_batch)
-        value_loss = self.mse_loss(value, test_batch[0])
-        policy_loss = self.cross_entropy(policy, test_batch[1])
-        loss = value_loss + policy_loss
-        self.log('test_loss', loss, batch_size=self.batch_size)
-        return {'test_loss': loss}
-
-    def test_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
-        self.test_results = {'test_loss': avg_loss}
-        return self.test_results
-
-    def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        self.log('val_loss', avg_loss, batch_size=self.batch_size)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

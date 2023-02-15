@@ -16,10 +16,16 @@ class Buffer:
         return len(self.buffer.index)
 
     def push(self, boards, values, policies):
-        self.buffer = pd.concat([self.buffer,pd.DataFrame({'board':boards,'value':values,'policy':policies})])
+        self.buffer = pd.concat([self.buffer,pd.DataFrame({'board':boards,'value':values,'policy':policies})],ignore_index=True)
         if self.__len__() > self.max_size:
             diff = self.__len__() - self.max_size
-            self.buffer.drop(index=self.buffer.index[:diff],inplace=True)
+            self.buffer = self.buffer.iloc[diff:]
+
+    def push_df(self, df):
+        self.buffer = pd.concat([self.buffer,df],ignore_index=True)
+        if self.__len__() > self.max_size:
+            diff = self.__len__() - self.max_size
+            self.buffer = self.buffer.iloc[diff:]
 
     def sample(self, batch_size):
         if batch_size > self.__len__():
@@ -31,16 +37,30 @@ class Buffer:
         data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
         return data
 
+def join_buffers(buffers):
+    buffer_df = pd.DataFrame(columns=['board','value','policy'])
+    for i in buffers:
+        buffer_df = pd.concat([buffer_df,i.buffer],ignore_index=True)
+    return buffer_df
 
 ##### Testing #####
-# import warnings
-# warnings.simplefilter(action='ignore', category=FutureWarning)
+
 # from network import GNN
 # import pytorch_lightning as pl
+# import chess
 # temp = Buffer(100)
-# temp.push(['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
-# data = temp.sample(2)
+# temp.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
 # config = {'lr': 0.001, 'hidden': 4672, 'n_layers': 8, 'batch_size': 2}
+
+# temp2 = Buffer(100)
+# temp2.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
+# temp3 = Buffer(100)
+# temp3.push([chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')],[0,0],[np.random.uniform(size=(8,8,73)),np.random.uniform(size=(8,8,73))])
+
+# new_buffer_df = join_buffers([temp,temp2,temp3])
+# new_buffer = Buffer(100)
+# new_buffer.push_df(new_buffer_df)
+# data = new_buffer.sample(6)
 # temp_dl = DataLoader(data, batch_size=config['batch_size'], shuffle=True, num_workers=0)
 # model = GNN(config)
 # trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=10)

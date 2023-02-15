@@ -53,7 +53,9 @@ def board2graph(board: chess.Board):
 
     Node features : 0 if square is empty, 1 for pawn, 2 for bishop, 3 for knight, 4 for rook, 5 for queen, 6 for king. One hot encoded.
 
-    Edge List: List of legal moves in the format of connecting the nodes representing the 'sqaure from' node to the 'square to' node
+    Edge List: [from_square, to_square] for each legal move for the both players
+
+    Edge features: [1,0] for the current players moves, [0,0] for the opponent's legal moves and [1,n] or [0,n] for the previous n movees.
     """
     node_features = [encode_piece_node(board.piece_at(i),board,i) for i in range(64)]
     edge_list = [encode_move_edge(move) for move in board.legal_moves]
@@ -64,9 +66,10 @@ def board2graph(board: chess.Board):
     edge_list.extend([encode_move_edge(move) for move in opp_turn.legal_moves])
     
     moves_list = [encode_move_edge(move) for move in board.legal_moves]
-    edge_features = [[0] for i in range(len(edge_list))]
+    edge_features = [[0] for i in range(len(edge_list))] 
     for move in moves_list:
         edge_features[edge_list.index(move)] = [1]
+    
     return Data(x=torch.stack(node_features,dim=0).reshape(64, 20), edge_index=torch.tensor(edge_list, dtype=torch.int64).t().view(2, -1), edge_attr=torch.tensor(edge_features, dtype=torch.float))
     # return node_features, edge_list,edge_features
 

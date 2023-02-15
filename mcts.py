@@ -1,25 +1,19 @@
 """
 MCTS self-play implementation
 """
-from network import GNN
+import torch 
 from buffer import Buffer
 import chess
 from utils.board2graph import board2graph
-from datamodule import ChessDataset
 import copy
-from torch_geometric.loader import DataLoader
 from utils.action_encoding import decode_action,encode_action
 import numpy as np 
-from sklearn.preprocessing import normalize
 from tqdm import tqdm
-import pandas as pd
 import pytorch_lightning as pl
 import time
 import sys
-import torch 
-import pickle
-
 np.set_printoptions(threshold=sys.maxsize)
+
 class Node:
     def __init__(self,board, parent, prior,move):
         self.board = board
@@ -54,8 +48,8 @@ class Node:
                 self.children.append(child)  
             child_priors = add_noise(child_priors, self)
             for child in self.children:
-                child.idx = move_idx
-                child.P = child_priors[move_idx[0],move_idx[1],move_idx[2]]
+                m_idx = child.idx
+                child.P = child_priors[m_idx[0],m_idx[1],m_idx[2]]
         else:
             for move in self.board.legal_moves:
                 move_idx = encode_action(self.board,move)
@@ -106,10 +100,10 @@ def backpropagate(node,result):
             cur.evals.append(-1*result)
         cur = cur.parent
 
-def mcts_run(root_state,net,c,num_runs):
-    net.eval()
+def mcts_run(root_state,net,c,num_runs,disable_bar=True):
+    # net.eval()
     root_node = Node(root_state,parent=None,prior=1,move=None)
-    for i in range(num_runs):
+    for i in tqdm(range(num_runs), disable=disable_bar):
         selected_node = select(root_node,c)
         value, policy = net([selected_node.graph])
         value = value[0].detach().numpy()[0]
@@ -117,31 +111,28 @@ def mcts_run(root_state,net,c,num_runs):
         if selected_node.board.outcome() is None:
             selected_node.expand(child_priors=policy)
         backpropagate(selected_node,value)
-    net.train()
+    # net.train()
     # print(root_node.children[np.argmax([i.n_visits for i in root_node.children])].move)
     return root_node, root_node.children[np.argmax([i.n_visits for i in root_node.children])].board # return best move and root
 
 def get_policy(node):
     policy = np.zeros([8,8,73])
     sum_visits = sum([i.n_visits for i in node.children])
+    # print('sum_visits: ',sum_visits)
     for child in node.children:
         policy[child.idx[0],child.idx[1],child.idx[2]] = child.n_visits/sum_visits
-    print([policy[child.idx[0],child.idx[1],child.idx[2]] for child in node.children])
     return policy
 
-def MCTS_selfplay(net,num_games=5000, num_sims_per_move=1600, train_freq = 100,buffer_size=100000, sample_size=10000,save_freq=500, eval_freq=200, calc_elo_freq=100):
+def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None, disable_bar=False):
     # initialize root node
+    buffer_size = np.inf if buffer_size is None else buffer_size
     buffer = Buffer(max_size=buffer_size)
     for game in range(1,num_games+1):
         print('Game: ',game)
-        polcies = []
-        boards = []
-        turns = []
-        c = 2 if game < 100 else 0.7 # start with high exploration
+        polcies, boards, turns = ([] for i in range(3))
         cur_board = chess.Board()
-        count = 0
-        value = 0
-        pbar = tqdm(total=200)
+        count, value = 0,0
+        pbar = tqdm(total=200,disable=disable_bar)
         while cur_board.outcome() is None and count < 200:
             root, best_move_board = mcts_run(root_state=cur_board,net=net,c=c,num_runs=num_sims_per_move)
             turn = 1 if cur_board.turn == chess.WHITE else -1
@@ -157,26 +148,20 @@ def MCTS_selfplay(net,num_games=5000, num_sims_per_move=1600, train_freq = 100,b
         pbar.close()
         assert len(boards) == len(polcies) == len(values)
         buffer.push(boards,values,polcies)
-        if game % train_freq == 0:
-            # train network on random batch of data
-            data = buffer.sample(sample_size) 
-            dataloader = DataLoader(data, batch_size=32, shuffle=True)
-            trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=5)
-            trainer.fit(net, dataloader)
-    return root, net
+    return buffer
 
-net = GNN({'lr': 0.1, 'hidden': 4672, 'n_layers': 1, 'batch_size': 32})
-root, net = MCTS_selfplay(net, 
-                        num_games=1,
-                        num_sims_per_move=50, 
-                        train_freq = 10, 
-                        buffer_size = 10000,
-                        sample_size = 2500,
-                        save_freq=500, 
-                        eval_freq=200, 
-                        calc_elo_freq=100)
+if __name__ == '__main__':
+    pass
+    # Testing
+    # net = GNN({'lr': 0.1, 'hidden': 4672, 'n_layers': 1, 'batch_size': 32})
+    # root, net = MCTS_selfplay(net, 
+    #                         num_games=10,
+    #                         num_sims_per_move=500, 
+    #                         train_freq = 2, 
+    #                         buffer_size = 500,
+    #                         sample_size = 350,
+    #                         save_freq=500, 
+    #                         eval_freq=200, 
+    #                         calc_elo_freq=100)
 
-
-with open('root.pkl', 'wb') as outp:
-    pickle.dump(root, outp, pickle.HIGHEST_PROTOCOL)
-torch.save(net, 'final_net')
+    # torch.save(net, 'final_net')
