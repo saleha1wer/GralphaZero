@@ -1,0 +1,54 @@
+Games against stockfish with rating: 300
+Game 0
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Network"]
+[Black "Stockfish 300"]
+[Result "0-1"]
+
+1. e3 e5 2. c4 c6 3. a3 d5 4. d3 Nf6 5. b4 Nbd7 6. g4 dxc4 7. e4 Nb6 8. d4 exd4
+9. a4 Bxb4+ 10. Nc3 Be6 11. Kd2 Nxe4+ 12. Ke1 Nxc3 13. Bg5 Nxd1+ 14. Ke2 Bxg4+
+15. Nf3 Nc3+ 16. Kd2 Na2+ 17. Ke2 Nc3+ 18. Kd2 Na2+ 19. Ke2 Qd5 20. Bf4 Qe4+
+21. Be3 Qc2+ 22. Bd2 Qxd2# 0-1
+Game 1
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Stockfish 300"]
+[Black "Network"]
+[Result "1-0"]
+
+1. d4 Nh6 2. Nc3 Na6 3. e4 Rg8 4. Bxa6 b5 5. Bxc8 g5 6. Bxd7+ Kxd7 7. Nge2 Rg6
+8. Nxb5 a6 9. Nbc3 Rg8 10. h3 e5 11. dxe5+ Ke8 12. Bd2 Rg6 13. g4 Qd3 14. cxd3
+Rb6 15. Nd5 Ng8 16. Nd4 Rc6 17. Nxc6 Bb4 18. Bxb4 f5 19. exf6 Rd8 20. Ne5 h5
+21. Qa4+ c6 22. f7# 1-0
+Games against stockfish with rating: 500
+Game 0
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Network"]
+[Black "Stockfish 500"]
+[Result "0-1"]
+
+1. b4 d5 2. b5 a6 3. c3 Nf6 4. c4 e5 5. d4 Bb4+ 6. Bd2 Bxd2+ 7. Kxd2 exd4 8. c5
+Ne4+ 9. Ke1 axb5 10. f3 Nxc5 11. Nd2 Nbd7 12. f4 c6 13. f5 Ra3 14. e4 dxe3 15.
+g4 O-O 16. Nb3 Ne4 17. Nc1 Qh4+ 18. Ke2 Qf2# 0-1
+Game 1
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Stockfish 500"]
+[Black "Network"]
+[Result "1-0"]
+
+1. e4 Nh6 2. d4 b6 3. Nc3 Ng8 4. Nf3 d6 5. Bb5+ Nd7 6. Bc6 Nh6 7. Bxa8 a6 8.
+Bc6 Rg8 9. a3 g5 10. a4 Rg7 11. a5 f5 12. axb6 Rf7 13. Qe2 g4 14. Ng1 Ng8 15.
+Bxd7+ Qxd7 16. bxc7 e5 17. Ra4 exd4 18. exf5+ Re7 19. Be3 d5 20. Qxg4 Re4 21.
+Nxe4 Qxf5 22. Qxf5 Ke7 23. Qxh7+ Ke6 24. Ng5+ Ke5 25. Qh8+ Bg7 26. Nf7+ Ke4 27.
+Ng5+ Kf5 28. Qh7+ Ke5 29. Bxd4+ Kf4 30. N5h3+ Bxh3 31. Nxh3+ Kg4 32. c8=B# 1-0

@@ -241,3 +241,4 @@ class GAT(BasicGNN):
         Conv = GATConv if not v2 else GATv2Conv
         return Conv(in_channels, out_channels, heads=heads, concat=concat,
                     dropout=self.dropout, **kwargs)
+    

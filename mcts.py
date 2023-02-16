@@ -129,7 +129,7 @@ def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None
     buffer = Buffer(max_size=buffer_size)
     for game in range(1,num_games+1):
         print('Game: ',game)
-        polcies, boards, turns = ([] for i in range(3))
+        polcies, boards, turns = ([] for _ in range(3))
         cur_board = chess.Board()
         count, value = 0,0
         pbar = tqdm(total=200,disable=disable_bar)
@@ -150,18 +150,16 @@ def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None
         buffer.push(boards,values,polcies)
     return buffer
 
-if __name__ == '__main__':
-    pass
-    # Testing
-    # net = GNN({'lr': 0.1, 'hidden': 4672, 'n_layers': 1, 'batch_size': 32})
-    # root, net = MCTS_selfplay(net, 
-    #                         num_games=10,
-    #                         num_sims_per_move=500, 
-    #                         train_freq = 2, 
-    #                         buffer_size = 500,
-    #                         sample_size = 350,
-    #                         save_freq=500, 
-    #                         eval_freq=200, 
-    #                         calc_elo_freq=100)
+# Testing
+# net = GNN({'lr': 0.1, 'hidden': 4672, 'n_layers': 1, 'batch_size': 32})
+# root, net = MCTS_selfplay(net, 
+#                         num_games=10,
+#                         num_sims_per_move=500, 
+#                         train_freq = 2, 
+#                         buffer_size = 500,
+#                         sample_size = 350,
+#                         save_freq=500, 
+#                         eval_freq=200, 
+#                         calc_elo_freq=100)
 
-    # torch.save(net, 'final_net')
+# torch.save(net, 'final_net')

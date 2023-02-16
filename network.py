@@ -7,7 +7,8 @@ import os
 import pytorch_lightning as pl
 from torch import nn
 from torch.nn import functional as F, Linear, BatchNorm1d, ModuleList, ReLU, Sequential
-from torch_geometric.nn.glob import GlobalAttention
+# from torch_geometric.nn.glob import GlobalAttention
+from torch_geometric.nn.aggr import AttentionalAggregation
 from torch_geometric.data import Data
 from utils.GAT import GAT
 import torch
@@ -23,7 +24,7 @@ class GNN(pl.LightningModule):
 
         self.gnn = GAT(20, self.hidden_size, num_layers=self.num_layers, edge_dim=2,v2=True,heads=8, norm=nn.BatchNorm1d(self.hidden_size),act_first=True)
 
-        self.pool = GlobalAttention(gate_nn=nn.Linear(self.hidden_size, 1))
+        self.pool = AttentionalAggregation(gate_nn=nn.Linear(self.hidden_size, 1))
 
         self.fc1 = Linear(self.hidden_size, self.hidden_size)
         # self.fc2 = Linear(self.hidden_size, self.hidden_size)
