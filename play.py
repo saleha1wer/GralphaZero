@@ -9,7 +9,7 @@ from utils.action_encoding import decode_action,encode_action
 import torch
 from stockfish import Stockfish
 import chess.pgn as pgn
-
+import warnings
 
 def stockfish_engine(rating,moves_list):
     stockfish = Stockfish()
@@ -27,7 +27,9 @@ def play(net, opponent_rating, white=True, num_runs=1600, c=0.7,return_pgn=False
     # Plays a game of chess between net and opponent.
     # opponent_rating is the rating required of the engine used as opponent.
     # white is a boolean that determines whether net plays white or black.
-    net.eval()
+    if net.training:
+        warnings.warn("Network is in training mode. Use net.eval() to switch to evaluation mode.")
+        net.eval()
     game = chess.Board()
     moves_list = []
     while game.outcome() is None:
@@ -39,7 +41,6 @@ def play(net, opponent_rating, white=True, num_runs=1600, c=0.7,return_pgn=False
             moves_list.append(str(move))
             move = chess.Move.from_uci(move)
         game.push(move)
-    net.train()
     if return_pgn:
         game_pgn = pgn.Game().from_board(game)
         game_pgn.headers['White'] = 'Network' if white else 'Stockfish '+str(opponent_rating)

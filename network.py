@@ -69,7 +69,7 @@ class GNN(pl.LightningModule):
         return value, policy
 
     def mse_loss(self, prediction, target):
-        prediction = prediction.reshape(target.shape)
+        prediction = prediction.view(target.shape)
         result = F.mse_loss(prediction, target)
         return result
 

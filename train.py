@@ -31,6 +31,7 @@ def decrease_c(max_c, min_c,loop_num,threshold,decay):
 def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 500000,buffer_size=7500000,batch_size=1024, eval_freq=5, calc_elo_freq=50):
     main_buffer = Buffer(max_size=buffer_size)
     network = GNN({'lr': 0.05, 'hidden': 4672, 'n_layers': 2})
+    elo_ratings = []
     for i in tqdm(range(1,n_loops+1)):
         network.eval()
         c = decrease_c(max_c=2,min_c=0.4,loop_num=i,threshold=100,decay=0.002)
@@ -53,17 +54,21 @@ def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 
         dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
         trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=3)
         trainer.fit(network, dataloader)
+        # Calculate elo of network
+        if i % calc_elo_freq == 0:
+            network.eval()
+            elo = find_network_elo(network,num_games=100,num_runs=n_sims_per_move,save_pgn_path='PGN_eval_{}.txt'.format(i))
+            torch.save(network, 'net_{}'.format(i))
+            elo_ratings.append(elo)
+            print('Elo after {} loops: {}'.format(i,elo))
 
-        # Evaluate network
-        if i % eval_freq == 0:
-            find_network_elo(network,num_games=100,num_runs=n_sims_per_move,save_pgn_path='PGN_eval_{}.txt'.format(i))
-
+    print('Elo ratings: ', elo_ratings)
     torch.save(network, 'final_net')
 
 if __name__ == '__main__':
-    # Train for 2,500,000 games
-    train(n_loops=500, n_games_per_loop=5000, n_sims_per_move=1600, sample_size=500000, batch_size=1024, eval_freq=75, calc_elo_freq=50)
+    # Train for 1,000,000 games
+    # train(n_loops=2000, n_games_per_loop=500, n_sims_per_move=1600, buffer_size=250000,sample_size=25000, batch_size=1024, eval_freq=75, calc_elo_freq=100)
 
     #Test
-    # train(n_loops=1, n_games_per_loop=10, n_sims_per_move=10, sample_size=1500, batch_size=256, eval_freq=75, calc_elo_freq=50)
+    train(n_loops=1, n_games_per_loop=10, n_sims_per_move=10, sample_size=1500, batch_size=64, eval_freq=75, calc_elo_freq=50)
 

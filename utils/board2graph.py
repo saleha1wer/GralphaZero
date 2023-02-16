@@ -55,7 +55,7 @@ def board2graph(board: chess.Board):
 
     Edge List: [from_square, to_square] for each legal move for the both players
 
-    Edge features: [1,0] for the current players moves, [0,0] for the opponent's legal moves and [1,n] or [0,n] for the previous n movees.
+    Edge features: [1,0] for the current players moves, [0,0] for the opponent's legal moves and [1,n] or [0,n] for the previous n moves.
     """
     node_features = [encode_piece_node(board.piece_at(i),board,i) for i in range(64)]
     edge_list = [encode_move_edge(move) for move in board.legal_moves]
@@ -71,16 +71,16 @@ def board2graph(board: chess.Board):
         edge_features[edge_list.index(move)] = [1,0]
 
     prev_moves_board = copy.deepcopy(board)
-    for i in range(1,8):
+    for i in range(1,9):
       try:
         last_move = prev_moves_board.pop()
-      except IndexError:
+      except IndexError: # no more moves
         break
       edge_list.append(encode_move_edge(last_move))
       turn = 1 if prev_moves_board.turn == board.turn else 0
       edge_features.append([turn,i])
 
-    return Data(x=torch.stack(node_features,dim=0).reshape(64, 20), edge_index=torch.tensor(edge_list, dtype=torch.int64).t().view(2, -1), edge_attr=torch.tensor(edge_features, dtype=torch.float))
+    return Data(x=torch.stack(node_features,dim=0).view(64, 20), edge_index=torch.tensor(edge_list, dtype=torch.int64).t().view(2, -1), edge_attr=torch.tensor(edge_features, dtype=torch.float))
     # return node_features, edge_list,edge_features
 
 
