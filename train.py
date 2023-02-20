@@ -68,16 +68,16 @@ def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 
 
 if __name__ == '__main__':
     # Train for 1,000,000 games
-    train(n_loops=2000, 
-        n_games_per_loop=500, 
-        n_sims_per_move=1600, 
-        buffer_size=250000,
-        sample_size=25000, 
-        batch_size=1024, 
-        eval_freq=75, 
-        calc_elo_freq=100,
-        disable_game_bar=False,
-        disable_move_bar =True)
+    # train(n_loops=2000, 
+    #     n_games_per_loop=500, 
+    #     n_sims_per_move=1600, 
+    #     buffer_size=250000,
+    #     sample_size=25000, 
+    #     batch_size=1024, 
+    #     eval_freq=75, 
+    #     calc_elo_freq=100,
+    #     disable_game_bar=False,
+    #     disable_move_bar =True)
 
     #Test
     train(n_loops=5,
