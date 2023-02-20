@@ -77,7 +77,7 @@ if __name__ == '__main__':
     #     eval_freq=75, 
     #     calc_elo_freq=100,
     #     disable_game_bar=False,
-    #     disable_move_bar =True)
+    #     disable_mcts_bar =True)
 
     #Test
     train(n_loops=5,
@@ -89,4 +89,4 @@ if __name__ == '__main__':
           eval_freq=75, 
           calc_elo_freq=2,
           disable_game_bar=False,
-          disable_move_bar=False)
+          disable_mcts_bar=False)
