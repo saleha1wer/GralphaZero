@@ -123,7 +123,7 @@ def get_policy(node):
         policy[child.idx[0],child.idx[1],child.idx[2]] = child.n_visits/sum_visits
     return policy
 
-def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None, disable_bar=False):
+def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None, disable_bar=False,disable_mcts_bar=True):
     # initialize root node
     buffer_size = np.inf if buffer_size is None else buffer_size
     buffer = Buffer(max_size=buffer_size)
@@ -134,7 +134,7 @@ def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None
         count, value = 0,0
         pbar = tqdm(total=200,disable=disable_bar)
         while cur_board.outcome() is None and count < 200:
-            root, best_move_board = mcts_run(root_state=cur_board,net=net,c=c,num_runs=num_sims_per_move)
+            root, best_move_board = mcts_run(root_state=cur_board,net=net,c=c,num_runs=num_sims_per_move,disable_bar=disable_mcts_bar)
             turn = 1 if cur_board.turn == chess.WHITE else -1
             turns.append(turn)
             polcies.append(get_policy(root))

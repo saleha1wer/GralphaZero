@@ -28,18 +28,19 @@ def decrease_c(max_c, min_c,loop_num,threshold,decay):
     return max(min_c, max_c*((1-decay)**(loop_num-threshold)))
 
 
-def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 500000,buffer_size=7500000,batch_size=1024, eval_freq=5, calc_elo_freq=50):
+def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 500000,buffer_size=7500000,batch_size=1024, eval_freq=5, calc_elo_freq=50,disable_move_bar=True):
     main_buffer = Buffer(max_size=buffer_size)
     network = GNN({'lr': 0.05, 'hidden': 4672, 'n_layers': 2})
     elo_ratings = []
+    n_cpu = mp.cpu_count()
+    n_games_per_loop = int(n_games_per_loop/n_cpu)
     for i in tqdm(range(1,n_loops+1)):
         network.eval()
         c = decrease_c(max_c=2,min_c=0.4,loop_num=i,threshold=100,decay=0.002)
-        n_cpu = mp.cpu_count()
         print('Number of CPUs: ', n_cpu)
-        pool,n_games_per_loop = mp.Pool(processes=n_cpu),int(n_games_per_loop/n_cpu)
+        pool = mp.Pool(processes=n_cpu)
         # Define a list of input tuples for each process
-        inputs = [(network, c, n_games_per_loop, n_sims_per_move, None) for _ in range(pool._processes)]
+        inputs = [(network, c, n_games_per_loop, n_sims_per_move, None,False,disable_move_bar) for _ in range(pool._processes)]
         # Run the function in parallel using the pool of processes
         buffers = pool.starmap(MCTS_selfplay, inputs)
         pool.close()
@@ -70,5 +71,11 @@ if __name__ == '__main__':
     # train(n_loops=2000, n_games_per_loop=500, n_sims_per_move=1600, buffer_size=250000,sample_size=25000, batch_size=1024, eval_freq=75, calc_elo_freq=100)
 
     #Test
-    train(n_loops=1, n_games_per_loop=10, n_sims_per_move=10, sample_size=1500, batch_size=64, eval_freq=75, calc_elo_freq=50)
-
+    train(n_loops=5,
+          n_games_per_loop=100, 
+          n_sims_per_move=700,
+          buffer_size=35000,sample_size=15000, 
+          batch_size=128, 
+          eval_freq=75, 
+          calc_elo_freq=2,
+          disable_move_bar=False)
