@@ -32,9 +32,17 @@ class Buffer:
         boards = rand_sample['board'].tolist()
         values = rand_sample['value'].tolist()
         policies = rand_sample['policy'].tolist()
+        boards, values, policies = np.array(boards), np.array(values), np.array(policies)
         data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
         return data
-
+    
+    def sample_all(self):
+        boards = self.buffer['board'].tolist()
+        values = self.buffer['value'].tolist()
+        policies = self.buffer['policy'].tolist()
+        boards, values, policies = np.array(boards), np.array(values), np.array(policies)
+        data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
+        return data
 def join_buffers(buffers):
     buffer_df = pd.DataFrame(columns=['board','value','policy'])
     for i in buffers:

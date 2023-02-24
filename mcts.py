@@ -110,6 +110,9 @@ def mcts_run(root_state,net,c,num_runs,disable_bar=True):
         policy = policy[0].detach().numpy()
         if selected_node.board.outcome() is None:
             selected_node.expand(child_priors=policy)
+        else:
+            value = decode_outcome(selected_node.board.outcome())
+            value = value*selected_node.turn
         backpropagate(selected_node,value)
     # net.train()
     # print(root_node.children[np.argmax([i.n_visits for i in root_node.children])].move)

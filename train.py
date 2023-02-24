@@ -51,7 +51,9 @@ def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 
         main_buffer.push_df(buffer_df)
         print('Buffer size: ', main_buffer.__len__())
         # train network on random batch of data
+
         data = main_buffer.sample(sample_size) 
+    
         dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
         trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=3)
         trainer.fit(network, dataloader)
@@ -82,11 +84,11 @@ if __name__ == '__main__':
     #Test
     train(n_loops=5,
           n_games_per_loop=100, 
-          n_sims_per_move=700,
+          n_sims_per_move=50,
           buffer_size=35000,
           sample_size=15000, 
           batch_size=128, 
           eval_freq=75, 
           calc_elo_freq=2,
           disable_game_bar=False,
-          disable_mcts_bar=False)
+          disable_mcts_bar=True)
