@@ -122,3 +122,23 @@ def decode_action(board, encoded_action):
       promoted = chess.QUEEN
     move = chess.Move(init_sqr,final_sqr,promotion=promoted)
     return move
+
+
+if __name__ == "__main__":
+  board = chess.Board('rnbqkbr1/ppppn2P/4pp2/8/6P1/8/PPPPP2P/RNBQKBNR w KQq - 1 6')
+  for move in board.legal_moves:
+    encoded_action = encode_action(board,move)
+    enc = np.zeros((8,8,73))
+    enc.fill(0.3)
+    enc[encoded_action[0],encoded_action[1],encoded_action[2]] = 0.5
+    dec_move = decode_action(board,enc)
+    if move != dec_move:
+      print('ERROR')
+      raise Exception('Move not decoded correctly')
+    else:
+      print('OK')
+      print('original move: ',move)
+      print('encoded action: ',encoded_action)
+      print('decoded move: ',dec_move)
+
+

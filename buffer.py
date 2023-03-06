@@ -4,6 +4,7 @@ from torch_geometric.loader import DataLoader
 import torch
 import numpy as np
 from network import GNN
+import pickle
 
 class Buffer:
     def __init__(self, max_size):
@@ -43,6 +44,9 @@ class Buffer:
         boards, values, policies = np.array(boards), np.array(values), np.array(policies)
         data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=torch.tensor(policies).to(torch.float))
         return data
+    def save(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 def join_buffers(buffers):
     buffer_df = pd.DataFrame(columns=['board','value','policy'])
     for i in buffers:

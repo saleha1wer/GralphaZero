@@ -32,32 +32,26 @@ class Node:
         if len(self.evals) == 0:
             return 0
         return np.mean(self.evals)
-    def ucb(self, c):
+    def ucb(self, c): 
         p = c * self.P * np.sqrt(self.parent.n_visits) / (self.n_visits + 1)
         return -1*(self.ave_eval()) + p
 
     def expand(self,child_priors):
         # get policy and value from network
+        moves = list(self.board.legal_moves)
+        for move in moves:
+            move_idx = encode_action(self.board,move)
+            board_copy = copy.deepcopy(self.board)
+            board_copy.push(move)
+            child = Node(board_copy, self,child_priors[move_idx[0],move_idx[1],move_idx[2]],move=move)
+            child.idx = move_idx
+            self.children.append(child) 
         if self.parent is None:
-            for move in self.board.legal_moves:
-                move_idx = encode_action(self.board,move)
-                board_copy = copy.deepcopy(self.board)
-                board_copy.push(move)
-                child = Node(board_copy, self,child_priors[move_idx[0],move_idx[1],move_idx[2]],move=move)
-                child.idx = move_idx
-                self.children.append(child)  
             child_priors = add_noise(child_priors, self)
             for child in self.children:
                 m_idx = child.idx
                 child.P = child_priors[m_idx[0],m_idx[1],m_idx[2]]
-        else:
-            for move in self.board.legal_moves:
-                move_idx = encode_action(self.board,move)
-                board_copy = copy.deepcopy(self.board)
-                board_copy.push(move)
-                child = Node(board_copy, self,child_priors[move_idx[0],move_idx[1],move_idx[2]],move=move)
-                child.idx = move_idx
-                self.children.append(child)                            
+                          
         self.is_expanded = True
 
 def select(node,c):
@@ -89,16 +83,14 @@ def add_noise(policy, node):
     return new_policy
 
 def backpropagate(node,result):
-    node.n_visits += 1
-    node.evals.append(result*node.turn)
     cur = node
     while cur.parent is not None:
         cur.n_visits += 1
-        if cur.turn == node.turn:
-            cur.evals.append(result)
-        else:
-            cur.evals.append(-1*result)
+        result = -1*result if cur.turn != chess.WHITE else result
+        cur.evals.append(result)
         cur = cur.parent
+        if cur.parent is None:
+            cur.n_visits += 1
 
 def mcts_run(root_state,net,c,num_runs,disable_bar=True):
     # net.eval()
@@ -108,11 +100,12 @@ def mcts_run(root_state,net,c,num_runs,disable_bar=True):
         value, policy = net([selected_node.graph])
         value = value[0].detach().numpy()[0]
         policy = policy[0].detach().numpy()
+        if i == 0:
+            print('value: ',value)
         if selected_node.board.outcome() is None:
             selected_node.expand(child_priors=policy)
         else:
             value = decode_outcome(selected_node.board.outcome())
-            value = value*selected_node.turn
         backpropagate(selected_node,value)
     # net.train()
     # print(root_node.children[np.argmax([i.n_visits for i in root_node.children])].move)
@@ -124,15 +117,58 @@ def get_policy(node):
     # print('sum_visits: ',sum_visits)
     for child in node.children:
         policy[child.idx[0],child.idx[1],child.idx[2]] = child.n_visits/sum_visits
+        # print('move:', child.move)
+        # print('visits: ',child.n_visits)
+        # print('prior: ', child.P)
+        # print('ave eval: ', child.ave_eval())
     return policy
 
-def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None, disable_bar=False,disable_mcts_bar=True):
+async def analyze_boards(boards_list):
+    transport, engine = await chess.engine.popen_uci(r'/opt/homebrew/opt/stockfish/bin/stockfish')
+    scores = []
+    best_moves = []
+    for b in boards_list:
+        info = await engine.analyse(b, chess.engine.Limit(time=0.1))
+        score = info['score'].white().score(mate_score=10000)
+        moves = info['pv']
+        move = moves[0] if len(moves) < 2 else moves[:2]
+        best_moves.append(move)
+        if score in [10000,-10000]:
+            score = 1 if score > 0 else -1
+        else:
+            adjusted_score = score/1000
+            score = min(adjusted_score,1) if score > 0 else max(adjusted_score,-1)
+        scores.append(score)
+    await engine.quit()
+    return scores,best_moves
+
+def get_stockfish_values_policies(boards):
+    import asyncio
+    asyncio.set_event_loop_policy(chess.engine.EventLoopPolicy())
+    nscores,nbest_moves = asyncio.run(analyze_boards(boards))
+    new_policies = []
+    for idx,board in enumerate(boards):                       
+        npolicy = np.zeros((8,8,73))
+        move = nbest_moves[idx]
+        if move.__class__ == list:
+            act1_idx = encode_action(board,move[0])
+            act2_idx = encode_action(board,move[1])
+            act1_pol = np.random.uniform(0.5,0.8)
+            npolicy[act1_idx[0],act1_idx[1],act1_idx[2]] =act1_pol
+            npolicy[act2_idx[0],act2_idx[1],act2_idx[2]] = 1-act1_pol
+        else:
+            act_idx = encode_action(board,move)
+            npolicy[act_idx[0],act_idx[1],act_idx[2]] = 1
+        new_policies.append(npolicy)
+    return nscores,new_policies
+
+def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None, disable_bar=False,disable_mcts_bar=True,stockfish=False):
     # initialize root node
     buffer_size = np.inf if buffer_size is None else buffer_size
     buffer = Buffer(max_size=buffer_size)
     for game in range(1,num_games+1):
         print('Game: ',game)
-        polcies, boards, turns = ([] for _ in range(3))
+        policies, boards, turns = ([] for _ in range(3))
         cur_board = chess.Board()
         count, value = 0,0
         pbar = tqdm(total=200,disable=disable_bar)
@@ -140,17 +176,23 @@ def MCTS_selfplay(net,c,num_games=5000, num_sims_per_move=1600, buffer_size=None
             root, best_move_board = mcts_run(root_state=cur_board,net=net,c=c,num_runs=num_sims_per_move,disable_bar=disable_mcts_bar)
             turn = 1 if cur_board.turn == chess.WHITE else -1
             turns.append(turn)
-            polcies.append(get_policy(root))
+            policies.append(get_policy(root))
             boards.append(copy.deepcopy(cur_board))
             cur_board = best_move_board
             if cur_board.outcome() is not None:
                 value = decode_outcome(cur_board.outcome())
             count += 1
             pbar.update(1)
-            values = [value*i for i in turns]
+        if stockfish:
+            values,policies = get_stockfish_values_policies(boards) 
+        else: 
+            values,policies = [value for i in turns],policies
         pbar.close()
-        assert len(boards) == len(polcies) == len(values)
-        buffer.push(boards,values,polcies)
+        print(values)
+        for i in range(10):
+            print(boards[i].fen())
+        assert len(boards) == len(policies) == len(values)
+        buffer.push(boards,values,policies)
     return buffer
 
 # Testing

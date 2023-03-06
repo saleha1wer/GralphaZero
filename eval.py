@@ -2,6 +2,7 @@ from play import play
 import torch 
 import multiprocessing as mp
 import chess.pgn as PGN
+from network import GNN
 
 def update_elo(org_rating, opp_rating,score, k=32):
     """
@@ -27,7 +28,7 @@ def update_elos(results,white_black_list,engine_elo,net_elo):
         net_elo = update_elo(net_elo, engine_elo, score)
     return net_elo
 
-def find_network_elo(network, num_games=100,num_runs=1600,save_pgn_path=None,engine_ratings=[300,500,700,900,1300,1700,2100,2500,2900,3300]):
+def find_network_elo(network,from_mcts=True, num_games=100,num_runs=1600,c=0.5,save_pgn_path=None,engine_ratings=[300,500,700,900,1300,1700,2100,2500,2900,3300]):
     """
     Calculates the elo of a network
     Plays num_games/10 against 10 different stockfish versions 
@@ -36,19 +37,24 @@ def find_network_elo(network, num_games=100,num_runs=1600,save_pgn_path=None,eng
     net_rating = 800
     pgns = []
     for eng_rating in engine_ratings: 
+        score,pgn = play(network, eng_rating, white=True, num_runs=num_runs, c=c,return_pgn=True,from_mcts=from_mcts)
+        print(pgn)
+        raise
         print('Playing against stockfish with rating: ', eng_rating)
         #play num_games against stockfish with rating
         white_list = [True if i%2 == 0 else False for i in range(num_games)]
         if mp.cpu_count() < num_games:
             raise Exception('Not enough CPU cores to run in parallel')
         pool = mp.Pool(processes=num_games)
-        inputs = [(network, eng_rating, white_list[i], num_runs, 0.7,True) for i in range(pool._processes)]
+        network.eval()
+        inputs = [(network, eng_rating, white_list[i], num_runs, c,True) for i in range(pool._processes)]
         results = pool.starmap(play, inputs)
         pool.close()
         pool.join()
         scores = [res[0] for res in results]
         pgn = [res[1] for res in results]
         net_rating = update_elos(scores,white_list,eng_rating,net_rating)
+        print(pgn)
         pgns.append(pgn)
     if save_pgn_path is not None:
         file = open(save_pgn_path, 'w')
@@ -68,7 +74,13 @@ def evaluate_network(old_network, new_network, num_games=400):
     """
     pass
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
     # Testing
-    # net = torch.load('final_net')
-    # find_network_elo(net,num_runs=10,num_games=4,save_pgn_path='pgn.txt',engine_ratings=[300,500])
+    from_mcts = False
+    print('Loading network')
+    params_path = 'network_human_games_params'
+    config = {'lr': 0.001 , 'hidden': 4672, 'n_layers': 1,'heads': 4}
+    network = GNN(config)
+    network.load_state_dict(torch.load(params_path))
+    print('Network loaded')
+    find_network_elo(network,from_mcts=from_mcts,num_runs=777,num_games=2,c=5,save_pgn_path='pgn.txt',engine_ratings=[300,500])
