@@ -5,8 +5,9 @@ import torch
 from tqdm import tqdm
 from buffer import Buffer, join_buffers
 from torch_geometric.loader import DataLoader
-from network import GNN
+from old_network import Network
 import multiprocessing as mp
+import time 
 """
 Repeat (500 times) - 2,500,000 games of self-play data
     - Gather 5,000 games of self-play data
@@ -16,7 +17,7 @@ Repeat (500 times) - 2,500,000 games of self-play data
         Replace best network if wins 55% of games (and save network)
     - Calculate elo of network (Every 50 loops)
 """
-# network = GNN({'lr': 0.05, 'hidden': 4672, 'n_layers': 2})
+# network = Network({'lr': 0.05, 'hidden': 4672, 'n_layers': 2})
 # network.eval()
 # def net_forward(graph_obj):
 #     return network(graph_obj)
@@ -28,19 +29,33 @@ def decrease_c(max_c, min_c,loop_num,threshold,decay):
     return max(min_c, max_c*((1-decay)**(loop_num-threshold)))
 
 
-def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 500000,buffer_size=7500000,batch_size=1024, eval_freq=5, calc_elo_freq=50,disable_game_bar=False,disable_mcts_bar=True):
+def train(network_params_path, n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 500000,buffer_size=7500000,batch_size=1024, eval_freq=5, calc_elo_freq=50,disable_game_bar=False,disable_mcts_bar=True,stockfish=False,elo_threshold=55,elo_decay=0.5, c_max=1.5, c_min=0.5, c_decay=0.5, c_threshold=75):
     main_buffer = Buffer(max_size=buffer_size)
-    network = GNN({'lr': 0.05, 'hidden': 4672, 'n_layers': 2})
     elo_ratings = []
-    n_cpu = mp.cpu_count()
+    config = {'lr': 0.005 , 'hidden': 4672, 'n_layers': 1,'heads': 64,'gnn_type':'GAT'}
+    network = Network(config)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if network_params_path is not None:
+        start = time.time()
+        print('Loading Network Parameters from: ', network_params_path)
+        network.load_state_dict(torch.load(network_params_path))
+        print('Loaded')
+        print('Time taken: ', time.time() - start)
+    # n_cpu = mp.cpu_count()
+    # n_games_per_loop = int(n_games_per_loop/n_cpu)
+    n_cpu = 10
     n_games_per_loop = int(n_games_per_loop/n_cpu)
     for i in tqdm(range(1,n_loops+1)):
+        if i > 1:
+            network = Network(config)
+            network.load_state_dict(torch.load('temp_network_selfplay_params'))
         network.eval()
         c = decrease_c(max_c=2,min_c=0.4,loop_num=i,threshold=100,decay=0.002)
         print('Number of CPUs: ', n_cpu)
         pool = mp.Pool(processes=n_cpu)
+        network.to(device)
         # Define a list of input tuples for each process
-        inputs = [(network, c, n_games_per_loop, n_sims_per_move, None,disable_game_bar,disable_mcts_bar) for _ in range(pool._processes)]
+        inputs = [(network, c, n_games_per_loop, n_sims_per_move, None,disable_game_bar,disable_mcts_bar,stockfish) for _ in range(pool._processes)]
         # Run the function in parallel using the pool of processes
         buffers = pool.starmap(MCTS_selfplay, inputs)
         pool.close()
@@ -53,8 +68,9 @@ def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 
         # train network on random batch of data
         data = main_buffer.sample(sample_size) 
         dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
-        trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=3)
+        trainer = pl.Trainer(accelerator='cpu', devices=1, max_epochs=1)
         trainer.fit(network, dataloader)
+        torch.save(network.state_dict(), 'temp_network_selfplay_params')
         # Calculate elo of network
         if i % calc_elo_freq == 0:
             network.eval()
@@ -62,9 +78,11 @@ def train(n_loops=500,n_games_per_loop=5000, n_sims_per_move=1600,sample_size = 
             torch.save(network, 'net_{}'.format(i))
             elo_ratings.append(elo)
             print('Elo after {} loops: {}'.format(i,elo))
-
     print('Elo ratings: ', elo_ratings)
-    torch.save(network, 'final_net')
+
+    # Save network parameters
+    torch.save(network.state_dict(), 'gnn_selfplay_params')
+
 
 if __name__ == '__main__':
     # Train for 1,000,000 games
@@ -80,13 +98,17 @@ if __name__ == '__main__':
     #     disable_mcts_bar =True)
 
     #Test
-    train(n_loops=5,
-          n_games_per_loop=100, 
-          n_sims_per_move=700,
-          buffer_size=35000,
-          sample_size=15000, 
-          batch_size=128, 
+    network_params_path = 'network_human_games_params_5000'
+    # network_params_path = 'network_human_games_params'
+    train(network_params_path=network_params_path,
+          n_loops=5,
+          n_games_per_loop=30, 
+          n_sims_per_move=35,
+          buffer_size=10000,
+          sample_size=5000, 
+          batch_size=32, 
           eval_freq=75, 
-          calc_elo_freq=2,
+          calc_elo_freq=20,
           disable_game_bar=False,
-          disable_mcts_bar=False)
+          disable_mcts_bar=True,
+          stockfish = True)
