@@ -12,9 +12,13 @@ from torch.utils.data import DataLoader as torchDataLoader
 import pytorch_lightning as pl
 import torch
 import copy
+import asyncio
+from array_net import AlphaLoss
+from array_net import move_acc as array_move_acc
+import numpy as np
 def getstrbet(s, start, end):
     return s[s.index(start) + len(start):s.rindex(end)]
-def test_human(configs,params,num_test_pos):
+def test_human(configs,params,num_test_pos,range):
     data_path = '/Users/mrsalwer/Desktop/graph_chess/train_human_games/human_games/games_chesstempo.csv'
 
 
@@ -24,109 +28,87 @@ def test_human(configs,params,num_test_pos):
         net = Network(config)
         net.load_state_dict(torch.load(param))
         nets.append(copy.deepcopy(net))
-        name = 'Graph ({})'.format(getstrbet(param,'graph_','_params')) 
-        name = 'old ' + name if 'new_g' in param else name
+        if config['board_representation'] == 'array':
+            name = 'Array ({})'.format(getstrbet(param,'array_','_params'))
+        else:
+            if config['policy_format'] == 'array':
+                name = 'Graph (array policy) ({})'.format(getstrbet(param,'graph_','_params'))
+            else:
+                name = 'Graph ({})'.format(getstrbet(param,'graph_','_params')) 
         names.append(name)
-
-    buf = load_data(path=data_path,
+    policy_format = 'both' if ([config['policy_format'] for config in configs].count('array') > 0 and [config['policy_format'] for config in configs].count('graph') > 0) else configs[0]['policy_format']
+    buf = asyncio.run(load_data(path=data_path,
                     testing=True,
                     stockfish_value=True,
-                    testing_range=(0,0),
+                    testing_range=range,
                     time_limit=0.01,
                     n_random_pos=num_test_pos,
-                    enc_all_legal = False)
-    data = buf.sample_all(type='graph')
-    dataloader = DataLoader(data, batch_size=min(1024,num_test_pos),drop_last=True) 
-    # torchdata = buf.sample_all(type='array')
-    # torchdataloader = torchDataLoader(torchdata, batch_size=32,drop_last=True)
+                    policy_format=policy_format))
+
     results = []
+    batch_size=min(64,int(num_test_pos/4))
     for idx,net in enumerate(nets):
         net.eval()
         trainer = pl.Trainer(accelerator='cpu', devices=1)
         print('Testing Network: ',names[idx])
-        res = trainer.test(net,dataloader)
-        results.append(res)
+        if net.policy_format == 'array':
+            data = buf.sample_all(dataset_type=net.board_rep,policy_format=net.policy_format,return_boards=True)
+            dataloader = torchDataLoader(data, batch_size=batch_size,drop_last=True) if net.board_rep == 'array' else DataLoader(data, batch_size=min(1024,int(num_test_pos/4)),drop_last=True)
+            alpha_loss = AlphaLoss()
+            res = trainer.predict(net,dataloader)
+            total_mse = 0
+            total_cse = 0
+            for i, batch_res in enumerate(res):
+                pred_value, pred_policy = batch_res
+                start, stop =i * dataloader.batch_size,(i+1) * dataloader.batch_size
+                true_value = data.values[start : stop]
+                true_policy = np.stack(data.policies[start: stop])
+                true_policy = torch.from_numpy(true_policy)
+                true_value = torch.from_numpy(true_value)
+                true_policy = true_policy.view(true_policy.size(0), -1) 
+                pred_value = pred_value.view(pred_value.size(0), -1)
+                pred_policy = pred_policy.view(pred_policy.size(0), -1)
+                true_value = true_value.view(true_value.size(0), -1)
+                if pred_value.shape != true_value.shape:
+                    print(pred_value)
+                    print('  ')
+                    print('  ')
+                    print(true_value)
+                    print(pred_value.shape,true_value.shape)
+                assert (pred_value.shape == true_value.shape) and (pred_policy.shape == true_policy.shape)
+                mse,cse = alpha_loss(true_value, pred_value, true_policy, pred_policy)
+                move_acc, best_move_acc = array_move_acc(pred_policy, true_policy, mask_illegal=True, boards=data.boards[start:stop])
+                total_mse += mse
+                total_cse += cse
+            total_mse /= len(res)
+            total_cse /= len(res)
+            results.append({'mse':total_mse,'cse':total_cse,'move_acc':move_acc,'best_move_acc':best_move_acc})
+        else:
+            data = buf.sample_all(dataset_type=net.board_rep,policy_format=net.policy_format)
+            dataloader = DataLoader(data, batch_size=batch_size,drop_last=True) 
+            res = trainer.test(net,dataloader)
+            results.append(res)
 
     for idx,res in enumerate(results):
         print('Network: ',names[idx],'\n')
-        print('Acc:', res,'\n \n')
+        print('Score:', res,'\n \n')
+
 if __name__ == '__main__':
-    params1 = 'new_networks/new_graph_30k2000k_params'
-    params2 = 'new_networks/old_graph_33k2200k_params'
-    # params3 = 'new_networks/new_graph_6k400k_params'
-    # params4 = 'new_networks/new_graph_7k500k_params'
-    # config2 = {'lr': 0.0001 , 'hidden': 4672, 'n_layers': 2,'heads': 16,'gnn_type':'GAT','board_representation':'graph','useresnet':False}
-    # params5 = 'new_networks/new_graph_9k600k_params'
-    # config3 = {'lr': 0.0001 , 'hidden': 4672, 'n_layers': 2,'heads': 16,'gnn_type':'GAT','board_representation':'array','useresnet':False}
-    # params6 = 'new_networks/new_graph_10k700k_params'
-    # params7 = 'new_networks/new_graph_12k800k_params'
-    # params8 = 'new_networks/new_graph_13k900k_params'
-    # params9 = 'new_networks/new_graph_15k1000k_params'
-    # params10 = 'new_networks/new_graph_16k1100k_params'
-    # params11 = 'new_networks/new_graph_18k1200k_params'
-    # params12 = 'new_networks/new_graph_19k1300k_params'
-    # params13 = 'new_networks/new_graph_21k1400k_params'
-    # params14 = 'new_networks/new_graph_22k1500k_params'
-    # params15 = 'new_networks/new_graph_27k1800k_params'
-    # params3 = 'new_networks/new_graph_36k2400k_params'
-    # params4 = 'new_networks/new_graph_40k2700k_params'
-    # params5 = 'new_networks/new_graph_45k3000k_params'
-    # params6 = 'new_networks/new_graph_48k3200k_params'
-    # params7 = 'new_networks/new_graph_51k3400k_params'
-    # params8 = 'new_networks/new_graph_52k3500k_params'
-    # params9 = 'new_networks/new_graph_55k3700k_params'
-    # params10 = 'new_networks/new_graph_57k3800k_params'
-    # params11 = 'new_networks/new_graph_60k4000k_params'
-    # params12 = 'new_networks/new_graph_60k4000k_params_vs_stockloop0'
-    # params13 = 'new_networks/new_graph_60k4000k_params_vs_stockloop4'
-    # params14 = 'new_networks/new_graph_60k4000k_params_vs_stockloop8'
-    # params14 = 'new_networks/new_graph_60k4000k_params_vs_stockloop10'
-    # params15 = 'new_networks/new_graph_60k4000k_params_vs_stockloop12'
-    # params16 = 'new_networks/new_graph_60k4000k_params_vs_stockloop14'
-    # params17 = 'new_networks/new_graph_60k4000k_params_vs_stockloop16'
-    # params18 = 'new_networks/new_graph_60k4000k_params_vs_stockloop18'
+    params_graph ='networks/graph_graph_35k2800k_params'
+    config_graph = {'board_representation':'graph','policy_format':'graph','lr': 0.00003,'GAheads': 16, 'att_emb_size': 1024, 'heads_GAT_edge': 16, 'heads_GAT_graph': 256, 'hidden_edge': 2048, 'hidden_graph': 512, 'n_layers': 5, 'pol_nlayers': 5, 'value_nlayers': 5,'finetune':False}
 
+    params_array = 'networks/array_array_35k2800k_params'
+    config_array = {'lr': 0.00001,'board_representation':'array','policy_format':'array','finetune':False}
+
+    params_graph_array = 'networks/graph_array_35k2800k_params'
+    config_graph_array = {'board_representation':'graph','policy_format':'array','finetune':False,'lr': 0.00001, 'heads_GAT_graph': 64, 'hidden_graph': 2048, 'n_layers': 5, 'pol_nlayers': 5, 'value_nlayers': 5}
+
+    params = [params_array,params_graph,params_graph_array]
+    configs = [config_array,config_graph,config_graph_array]
     
-    config1 = {'value_nlayers':7,'value_hidden':100,'pol_nlayers':10,'pol_hidden':250,'pol_val_samedim':True,'dropout':0,'hidden_graph':256,'hidden_edge':128,'residual':True,'att_emb_size':515,'GAheads':5,'loss_func':'CE','lr': 0.001 ,'hidden': 4672, 'n_layers': 2,'heads': 16,'board_representation':'graph','useresnet':False}
-    config2 = {'value_nlayers':5,'value_hidden':256,'pol_nlayers':5,'pol_hidden':256,'pol_val_samedim':True,'dropout':0,'hidden_graph':256,'hidden_edge':512,'residual':True,'att_emb_size':256,'GAheads':32,'loss_func':None,'lr': 0.0001, 'hidden': 2048, 'n_layers': 3,'heads': 32,'board_representation':'graph','useresnet':False}
-
-
-
-    params1 = 'new_networks/new_graph_1k100k_params'
-    params2 = 'new_networks/graph_1k100k_params'
-
-    params3 = 'new_networks/new_graph_3k200k_params'
-    params4 = 'new_networks/graph_3k200k_params'
-
-    params5 = 'new_networks/new_graph_4k300k_params'
-    params6 = 'new_networks/graph_4k300k_params'
-
-    params7 = 'new_networks/new_graph_6k400k_params'
-    params8 = 'new_networks/graph_6k400k_params'
-
-    params9 = 'new_networks/new_graph_7k500k_params'
-    params10 = 'new_networks/graph_7k500k_params'
-
-    params11 = 'new_networks/new_graph_9k600k_params'
-    params12 = 'new_networks/graph_9k600k_params'
-
-    params13 = 'new_networks/new_graph_10k700k_params'
-    params14 = 'new_networks/graph_10k700k_params'
-
-    params15 = 'new_networks/new_graph_12k800k_params'
-    params16 = 'new_networks/graph_12k800k_params'
-
-    params17 = 'new_networks/new_graph_13k900k_params'
-    params18 = 'new_networks/graph_13k900k_params'
-
-    params19 = 'new_networks/new_graph_15k1000k_params'
-    params20 = 'new_networks/graph_15k1000k_params'
-
-    params21 = 'new_networks/new_graph_16k1100k_params'
-    params22 = 'new_networks/graph_16k1100k_params'
-
-    params = [params1,params2,params3,params4,params5,params6,params7,params8,params9,params10,params11,params12,params13,params14,params15,params16,params17,params18,params19,params20,params21,params22]
-    # configs = [config1 for _ in range(len(params))]
-    configs = [config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2,config1,config2]
-    test_human(configs,params,10000)
+    # params = [params_graph_array,params_array]
+    # configs = [config_graph_array,config_array]
+    
+    
+    test_human(configs,params,4000,(0,50))
     

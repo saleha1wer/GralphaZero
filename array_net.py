@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
+from utils.action_encoding import old_decode_action
 class ConvBlock(nn.Module):
     def __init__(self,size=256,conv='2d'):
         super(ConvBlock, self).__init__()
@@ -104,19 +104,30 @@ class AlphaLoss(nn.Module):
         policy_error = policy_error.view(-1).float().mean()
         return value_error, policy_error
 
-def move_acc(prediction, target):
+def move_acc(prediction, target,mask_illegal=False,boards=None):
+    assert mask_illegal == (boards is not None), 'if mask_ilegal is True, boards should be provided'
     move_accs, best_acc = [], []
     # Assume prediction and target are of size (batch_size, 4672)
-    for pred, real in zip(prediction, target):
+    for idx, (pred, real) in enumerate(zip(prediction, target)):
         pred_argmax = torch.argmax(pred).item()
         real_argmax = torch.argmax(real).item()
-        best_acc.append(1 if pred_argmax == real_argmax else 0)
-        # find the indices of the nonzero elements
-        real_nonzero_indices = real.nonzero(as_tuple=True)[0].tolist()
-        move_accs.append(1 if pred_argmax in real_nonzero_indices else 0)
-        # print('pred: ',pred_argmax)
-        # print('real: ',real_argmax)
-        # print('real_nonzero_indices: ',real_nonzero_indices)
-    result = np.sum(move_accs) / len(move_accs)
+        if not mask_illegal:
+            best_acc.append(1 if pred_argmax == real_argmax else 0)
+            # find the indices of the nonzero elements
+            real_nonzero_indices = real.nonzero(as_tuple=True)[0].tolist()
+            move_accs.append(1 if pred_argmax in real_nonzero_indices else 0)
+        else:
+            board = boards[idx]
+            pred_move = str(old_decode_action(board,pred.view(8,8,73).numpy()))
+            best_move = str(old_decode_action(board,real.view(8,8,73).numpy()))
+            best_moves = []
+            for move_idx in real.nonzero(as_tuple=True)[0].tolist():
+                move_idx = np.unravel_index(move_idx, (8,8,73))
+                move = np.zeros((8,8,73))
+                move[move_idx[0],move_idx[1],move_idx[2]] = 1
+                best_moves.append(str(old_decode_action(board,move)))
+            best_acc.append(1 if pred_move == best_move else 0)
+            move_accs.append(1 if pred_move in best_moves else 0)
+    any_acc = np.sum(move_accs) / len(move_accs)
     best_acc_result = np.sum(best_acc) / len(best_acc)
-    return result, best_acc_result
+    return any_acc, best_acc_result

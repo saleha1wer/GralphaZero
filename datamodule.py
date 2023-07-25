@@ -15,7 +15,7 @@ from utils.board2graph import board2graph
 
 
 class ChessDataset(Dataset):
-    def __init__(self,boards,values,policies):
+    def __init__(self,boards,values,policies,log=True):
         """
         boards = List of chess boards
         values = List of values
@@ -31,7 +31,7 @@ class ChessDataset(Dataset):
             self.graphs = [board2graph(b) for b in boards]
             self.policy_format = 'array'
         self.length = len(self.boards)
-        super().__init__('data', None, None, None)
+        super().__init__('data', None, None, None,log=log)
 
     @property
     def raw_file_names(self):
@@ -96,7 +96,7 @@ class oldChessDataset(Dataset):
         return self.graphs[idx], torch.tensor(self.values[idx]), torch.tensor(self.policies[idx])
 
 class ChessDataset_arrays(torchDataset):
-    def __init__(self,boards,values,policies,transform=None, target_transform=None):
+    def __init__(self,boards,values,policies,transform=None, target_transform=None,return_boards=False):
         self.boards = boards
         self.values = np.array(values)
         self.policies = torch.stack(policies)
@@ -104,11 +104,15 @@ class ChessDataset_arrays(torchDataset):
         self.length = len(self.boards)
         self.transform = transform
         self.target_transform = target_transform
+        self.return_boards = return_boards
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
-        return  torch.tensor(self.arrays[idx]), torch.tensor(self.values[idx]), self.policies[idx]
+        if self.return_boards:
+            return  torch.tensor(self.arrays[idx]), torch.tensor(self.values[idx]), self.policies[idx],idx
+        else:
+            return  torch.tensor(self.arrays[idx]), torch.tensor(self.values[idx]), self.policies[idx]
 
 ##### Testing #####
 # temp = ChessDataset(fens=['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],values=[0,0],policies=[[0,0,0],[0,0,0]])

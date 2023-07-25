@@ -20,6 +20,7 @@ from torch_geometric.nn.pool.edge_pool import EdgePooling
 from utils.batch_handling import get_edge_indices_for_all_graphs, split_by_graph, softmax_each_group, combine_edge_and_graph_embeddings
 from array_net import ChessNet, AlphaLoss
 from array_net import move_acc as array_move_acc
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 def calculate_dimensions(in_dim, out_dim, hidden_dim,n_layers):
     dimensions = [in_dim]
@@ -78,20 +79,23 @@ class FCBlock(nn.Module):
         return s
 
 class ResBlockFCN(nn.Module):
-    def __init__(self, inplanes, planes):
+    def __init__(self, inplanes, planes,residual=True):
         super(ResBlockFCN, self).__init__()
         self.fc1 = nn.Linear(inplanes, planes)
         self.bn1 = nn.BatchNorm1d(planes)
         self.fc2 = nn.Linear(planes, planes)
         self.bn2 = nn.BatchNorm1d(planes)
+        self.residual = residual
 
     def forward(self, x):
-        residual = x
+        if self.residual:
+            residual_x = x
         out = self.fc1(x)
         out = F.relu(self.bn1(out))
         out = self.fc2(out)
         out = self.bn2(out)
-        out += residual
+        if self.residual:
+            out += residual_x
         out = F.relu(out)
         return out
 
@@ -101,15 +105,16 @@ class ResNetFCN(nn.Module):
         self.n_layers = n_layers
         self.pol_fc = FCBlock(size=in_size)
         self.head_type = head_type
+        residual = False if n_layers < 4 else True
         for block in range(n_layers):
-            setattr(self, "res_%i" % block, ResBlockFCN(inplanes=in_size, planes=in_size))
+            setattr(self, "res_%i" % block, ResBlockFCN(inplanes=in_size, planes=in_size,residual=residual))
         self.fc1 = nn.Linear(in_size, in_size // 2)
         self.bn1 = nn.BatchNorm1d(in_size // 2)
         self.logsoftmax = nn.LogSoftmax(dim=1)
         self.fc2 = nn.Linear(in_size // 2, out_size)
         if head_type == 'Value':
-            self.fc3 = nn.Linear(out_size, out_size)
             self.relu = nn.ReLU()
+            self.fc3 = nn.Linear(out_size, out_size)
         self.softmax = softmax
 
     def forward(self, x):
@@ -119,8 +124,8 @@ class ResNetFCN(nn.Module):
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.fc2(x)
         if self.head_type == 'Value':
-            x = self.fc3(x)
             x = self.relu(x)
+            x = self.fc3(x)
         elif self.head_type == 'Policy' and self.softmax:
             x = self.logsoftmax(x).exp()
         return x
@@ -163,32 +168,32 @@ class Network(pl.LightningModule):
         self.data_dir = data_dir or os.getcwd()  # pass this from now on
         self.learning_rate = config['lr']
         self.board_rep = config['board_representation']
+        self.policy_format = config['policy_format']
+        self.finetune = config['finetune']
         if self.board_rep == 'graph':
             self.hiddensize_graph = config['hidden_graph']
-            self.hiddensize_edge = config['hidden_edge']
             self.num_layers = config['n_layers']
             self.value_nlayers = config['value_nlayers']
             self.pol_nlayers = config['pol_nlayers']
-            self.policy_format = config['policy_format']
-            self.GAT_heads_graph = config['heads_GAT_graph']
-            self.GAT_heads_edge = config['heads_GAT_edge']
-            GAheads = config['GAheads']
-            att_emb_size = config['att_emb_size']
             n_edge_f= 3
             graphgnn_size = self.hiddensize_graph
-            edgegnn_size = self.hiddensize_edge
             if self.policy_format == 'graph':
-                self.edge_gnn = GAT(25, edgegnn_size, num_layers=self.num_layers, edge_dim=n_edge_f,v2=True,heads=self.GAT_heads_edge, norm=nn.BatchNorm1d(edgegnn_size),act_first=True)
+                GAheads = config['GAheads']
+                att_emb_size = config['att_emb_size']
+                self.hiddensize_edge = config['hidden_edge']
+                self.GAT_heads_graph = config['heads_GAT_graph']
+                self.GAT_heads_edge = config['heads_GAT_edge']
+                self.edge_gnn = GAT(25, self.hiddensize_edge, num_layers=self.num_layers, edge_dim=n_edge_f,v2=True,heads=self.GAT_heads_edge, norm=nn.BatchNorm1d(self.hiddensize_edge),act_first=True)
                 self.graph_gnn = GAT(25, graphgnn_size, num_layers=self.num_layers, edge_dim=n_edge_f,v2=True,heads=self.GAT_heads_graph, norm=nn.BatchNorm1d(graphgnn_size),act_first=True)
                 self.pool = AttentionalAggregation(gate_nn=nn.Linear(graphgnn_size, 1))
-                # self.edgepool = AttentionalAggregation(gate_nn=nn.Linear(edgegnn_size, 1))
-                edge_emb_size = edgegnn_size*2+n_edge_f
+                # self.edgepool = AttentionalAggregation(gate_nn=nn.Linear(self.hiddensize_edge, 1))
+                edge_emb_size = self.hiddensize_edge*2+n_edge_f
                 self.global_attention = GlobalAttention(graph_emb_size=graphgnn_size, edge_emb_size=edge_emb_size, num_heads=GAheads,emb_size=att_emb_size)
                 self.pol_resnet = ResNetFCN(in_size=edge_emb_size, out_size=1, n_layers=self.pol_nlayers,head_type='Policy',softmax=False)
                 self.val_resnet = ResNetFCN(in_size=graphgnn_size, out_size=1, n_layers=self.value_nlayers,head_type='Value')
             elif self.policy_format == 'array':
-                graphgnn_size = 512
-                self.graph_gnn = GAT(25, graphgnn_size, num_layers=self.num_layers, edge_dim=n_edge_f,v2=True,heads=config['heads'], norm=nn.BatchNorm1d(graphgnn_size),act_first=True)
+                graphgnn_size = 2048
+                self.graph_gnn = GAT(25, graphgnn_size, num_layers=self.num_layers, edge_dim=n_edge_f,v2=True,heads=config['heads_GAT_graph'], norm=nn.BatchNorm1d(graphgnn_size),act_first=True)
                 self.pool = AttentionalAggregation(gate_nn=nn.Linear(graphgnn_size, 1))
                 self.pol_head = ResNetFCN(in_size=graphgnn_size, out_size=8*8*73, n_layers=self.pol_nlayers,head_type='Policy',softmax=True)
                 self.val_resnet = ResNetFCN(in_size=graphgnn_size, out_size=1, n_layers=self.value_nlayers,head_type='Value')
@@ -223,8 +228,11 @@ class Network(pl.LightningModule):
                 attn_output = self.global_attention(graph_emb, edge_feat, graph_edge_indices)  # --> (n_edges, edge_emb_size)
                 attn_output = torch.concat(attn_output,dim=0)
                 # Apply residual network to attention output to get policy
-                policy_logits = self.pol_resnet(attn_output)  # --> (n_edges, 1)
-                policy_logits = split_by_graph(policy_logits, graph_edge_indices) 
+                if graphs.num_edges > 1 :
+                    policy_logits = self.pol_resnet(attn_output)  # --> (n_edges, 1)
+                    policy_logits = split_by_graph(policy_logits, graph_edge_indices) 
+                else:
+                    policy_logits = [torch.tensor([1])]
                 value = torch.tanh(self.val_resnet(graph_emb))
             elif self.policy_format == 'array':
                 graphs = data[0]
@@ -273,10 +281,10 @@ class Network(pl.LightningModule):
         beg,move_accs,valid_indices,best_acc = 0,[], (target != -1),[]
         target = target[valid_indices].view(-1)
         for i in range(len(prediction)):
-            # prediction[i].view(-1).numpy().shape
-            pred =torch.argmax(prediction[i].view(-1)).numpy()
-            real = list(np.nonzero(target[beg:beg+prediction[i].shape[0]].view(-1).numpy())[0])
-            reak_best = np.argmax(target[beg:beg+prediction[i].shape[0]].view(-1).numpy())
+            # prediction[i].view(-1).cpu().numpy().shape
+            pred =torch.argmax(prediction[i].view(-1)).cpu().numpy()
+            real = list(np.nonzero(target[beg:beg+prediction[i].shape[0]].view(-1).cpu().numpy())[0])
+            reak_best = np.argmax(target[beg:beg+prediction[i].shape[0]].view(-1).cpu().numpy())
             best_acc.append(1 if pred == reak_best else 0)
             move_accs.append(1 if pred in real else 0)
             beg = beg+prediction[i].shape[0]
@@ -285,63 +293,103 @@ class Network(pl.LightningModule):
         return result,best_acc_result
 
     def training_step(self, train_batch, batch_idx):
-        if self.board_rep == 'graph' and self.policy_format == 'graph':
-            if self.policy_format == 'graph':
-                value, policy= self.forward(train_batch)
-                t = train_batch[0].edge_attr[:,3:4]
-                value_loss = self.mse_loss(value, train_batch[1].view(value.shape))
-                policy_loss = self.cross_entropy(policy , t)
-                # print('real value: ', train_batch[1].view(value.shape))
-                # print('predicted value: ', value)
-                # print('Real, Pred: ')
-                # print([(float(train_batch[1][i]),float(value[i])) for i in range(value.shape[0])])
-                # print('loss: ', float(loss))
-                move_acc,best_acc = self.move_acc(policy, t)
-                if np.random.uniform() < 0.5:
-                    print('pred: ', policy[0].view(-1))
-                    t = t[(t!=-1)].view(-1)
-                    print('real: ', t[0:policy[0].shape[0]].view(-1))
+        if self.finetune:
+            _, policy = self.forward(train_batch)
+            policy = [torch.nan_to_num(p) for p in policy]
+            t = train_batch[0].edge_attr[:,3:4]
+            policy_loss = self.cross_entropy(policy , t)
+            move_acc,best_acc = self.move_acc(policy, t)
+            self.log('train_loss', float(policy_loss))
+            self.log('Move_acc', move_acc,prog_bar=True)
+            self.log('Best_acc', best_acc,prog_bar=True)
+            return policy_loss
         else:
-            value, policy= self.forward(train_batch)
-            target_value = train_batch[1].view(value.shape)
-            target_policy = train_batch[2]
-            target_policy = target_policy.view(target_policy.size(0), -1) 
-            move_acc,best_acc = array_move_acc(policy, target_policy)
-            value_loss,policy_loss = self.alpha_loss(target_value, value, target_policy, policy)
-        print('move acc: ', move_acc)
-        print('best acc: ', best_acc)
-        print('Value Loss: ', float(value_loss))
-        print('Policy Loss: ', float(policy_loss))
-        loss = policy_loss + value_loss
-        self.log('train_loss', loss)
-        self.log('move_acc', move_acc)
-        self.log('best_acc', best_acc)
-        self.log('MSE (value)', value_loss)
-        self.log('Cross Entropy (policy)', policy_loss)
-        return loss
+            if self.board_rep == 'graph' and self.policy_format == 'graph':
+                if self.policy_format == 'graph':
+                    value, policy= self.forward(train_batch)
+                    policy = [torch.nan_to_num(p) for p in policy]
+                    t = train_batch[0].edge_attr[:,3:4]
+                    value_loss = self.mse_loss(value, train_batch[1].view(value.shape))
+                    policy_loss = self.cross_entropy(policy , t)
+                    move_acc,best_acc = self.move_acc(policy, t)
+            else:
+                value, policy= self.forward(train_batch)
+                target_value = train_batch[1].view(value.shape)
+                target_policy = train_batch[2]
+                target_policy = target_policy.view(target_policy.size(0), -1) 
+                move_acc,best_acc = array_move_acc(policy, target_policy)
+                value_loss,policy_loss = self.alpha_loss(target_value, value, target_policy, policy)
+            loss = policy_loss + value_loss
+            self.log('train_loss', loss,prog_bar=True)
+            self.log('best_acc', best_acc,prog_bar=False)
+            self.log('MSE (value)', value_loss,prog_bar=True)
+            self.log('Cross Entropy (policy)', policy_loss,prog_bar=True)
+            self.log('move_acc', move_acc,prog_bar=True)
+            return loss
 
     def test_step(self, test_batch,batch_idx):
-        if self.board_rep == 'graph' and self.policy_format == 'graph':
-            value, policy= self.forward(test_batch)
-            value_loss = self.mse_loss(value, test_batch[1].view(value.shape))
+        if self.finetune:
+            _, policy= self.forward(test_batch)
+            policy = [torch.nan_to_num(p) for p in policy]
             t = test_batch[0].edge_attr[:,3:4]
+            batch_size = len(policy)
             policy_loss = self.cross_entropy(policy , t)
-            # test if pred move is in any of the non zero idxs of real policy
             acc,best_move_acc = self.move_acc(policy, test_batch[0].edge_attr[:,3:4])
+            self.log_dict({'acc':acc,'best_move_acc':best_move_acc,'policy_loss':policy_loss},prog_bar=True,batch_size=batch_size)
+            return policy_loss,acc, best_move_acc
         else:
-            value, policy= self.forward(test_batch)
-            target_value = test_batch[1].view(value.shape)
-            target_policy = test_batch[2]
-            target_policy = target_policy.view(target_policy.size(0), -1) 
-            acc,best_move_acc = array_move_acc(policy, target_policy)
-            value_loss,policy_loss = self.alpha_loss(target_value, value, target_policy, policy)
-        self.log_dict({'cross_entropy':policy_loss,'mse':float(value_loss),'move_acc':acc,'best_move_acc':best_move_acc},batch_size=1)
-        return value_loss,policy_loss,acc, best_move_acc
-
+            if self.board_rep == 'graph' and self.policy_format == 'graph':
+                value, policy= self.forward(test_batch)
+                policy = [torch.nan_to_num(p) for p in policy]
+                batch_size = len(policy)
+                value_loss = self.mse_loss(value, test_batch[1].view(value.shape))
+                t = test_batch[0].edge_attr[:,3:4]
+                policy_loss = self.cross_entropy(policy , t)
+                # test if pred move is in any of the non zero idxs of real policy
+                acc,best_move_acc = self.move_acc(policy, test_batch[0].edge_attr[:,3:4])
+            else:
+                value, policy= self.forward(test_batch)
+                target_value = test_batch[1].view(value.shape)
+                target_policy = test_batch[2]
+                batch_size = target_policy.size(0)
+                target_policy = target_policy.view(batch_size, -1) 
+                acc,best_move_acc = array_move_acc(policy, target_policy)
+                value_loss,policy_loss = self.alpha_loss(target_value, value, target_policy, policy)
+            self.log_dict({'cross_entropy':policy_loss,'mse':float(value_loss),'move_acc':acc,'best_move_acc':best_move_acc},prog_bar=True,batch_size=batch_size)
+            return value_loss,policy_loss,acc, best_move_acc
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate,weight_decay=0.0001)
-        return optimizer
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler': scheduler,
+                'monitor': 'train_loss',  
+            }
+        }
+
+    def freeze_model(self):
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def unfreeze_model_parts(self):
+        """
+        Unfreezes model params that are only relevant to the policy prediction (edge_gnn, global attention, pol resnet)
+        """
+        for name, param in self.named_parameters():
+            if 'edge_gnn' in name or 'global_attention' in name or 'pol_resnet' in name:
+                param.requires_grad = True
+
+
+    def freeze_gnn_edge(self,fraction=0.5):
+        """
+        Freezes a fraction of gnn_edge GAT
+        """
+        gnn_edge_params = [p for n, p in self.named_parameters() if 'edge_gnn' in n]
+        num_params = len(gnn_edge_params)
+        for param in gnn_edge_params[:int(num_params*fraction)]:  # freeze first half
+            param.requires_grad = False
 
 if __name__ == '__main__':
 

@@ -72,7 +72,7 @@ def colect_stockfish_data(net,num_games,from_mcts=False,exploration=True,num_run
             if white_list[n]==board.turn:
                 # get pred_value and pred_policy
                 _, pred_policy = net([board2graph(board)])
-                pred_policy = pred_policy[0].detach().numpy().flatten()
+                pred_policy = pred_policy[0].detach().cpu().numpy().flatten()
                 move = decode_action(board,pred_policy,exploration=exploration) 
             else:
                 move = np.random.choice(moves)

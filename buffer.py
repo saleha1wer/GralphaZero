@@ -70,7 +70,7 @@ class Buffer:
                 data = ChessDataset_arrays(boards=boards,values=torch.tensor(values).to(torch.float),policies=policies)
         return data
 
-    def sample_all(self, dataset_type='graph', policy_format='graph'):
+    def sample_all(self, dataset_type='graph', policy_format='graph',return_boards=False):
         boards = self.buffer['board'].tolist()
         values = self.buffer['value'].tolist()
         boards, values = np.array(boards), np.array(values)
@@ -81,13 +81,13 @@ class Buffer:
             if dataset_type == 'graph':
                 data = ChessDataset(boards=boards, values=torch.tensor(values).to(torch.float), policies=graph_policies if policy_format == 'graph' else array_policies)
             else:
-                data = ChessDataset_arrays(boards=boards, values=torch.tensor(values).to(torch.float), policies=graph_policies if policy_format == 'graph' else array_policies)
+                data = ChessDataset_arrays(boards=boards, values=torch.tensor(values).to(torch.float), policies=graph_policies if policy_format == 'graph' else array_policies,return_boards=return_boards)
         else:
             policies = self.buffer['policy'].tolist()
             if dataset_type == 'graph':
                 data = ChessDataset(boards=boards,values=torch.tensor(values).to(torch.float),policies=policies)
             else:
-                data = ChessDataset_arrays(boards=boards,values=torch.tensor(values).to(torch.float),policies=policies)
+                data = ChessDataset_arrays(boards=boards,values=torch.tensor(values).to(torch.float),policies=policies,return_boards=return_boards)
         return data
 
     def save(self, path):

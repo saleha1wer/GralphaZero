@@ -138,16 +138,17 @@ def mcts_run(root_state,net,c,num_runs,board_rep,disable_bar=True,exploration=Tr
     root_node = Node(root_state,parent=None,prior=1,move=None,board_rep=board_rep)
     for i in tqdm(range(num_runs), disable=disable_bar):
         selected_node = select(root_node,c)
+        print(selected_node.board.fen())
         t = net([selected_node.graph])
         value, policy = t[0], t[1]
-        value = value[0].detach().numpy()[0]
-        policy = policy[0].detach().numpy()
+        value = value[0].detach().cpu().numpy()[0]
+        policy = policy[0].detach().cpu().numpy()
         selected_node.value = value
         if i == 0:
             print('value: ',value)
             print('fen: ', selected_node.board.fen())
         if selected_node.board.outcome() is None:
-            policy = softmax(policy) if net.name == 'new' else legal_softmax(policy,selected_node.board)
+            policy = softmax(policy) if net.policy_format == 'graph' else legal_softmax(policy,selected_node.board)
             selected_node.expand(child_priors=policy,noisy_root=exploration,board_rep=board_rep)
         else:
             value = decode_outcome(selected_node.board.outcome())
